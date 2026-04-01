@@ -2,135 +2,70 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>IoT SCADA Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IoT SCADA Dashboard - Firebase V8</title>
 
   <style>
-    body {
-      margin: 0;
-      font-family: Arial;
-      background: #0f172a;
-      color: white;
-    }
+    body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: white; }
+    .content { padding: 20px; padding-bottom: 80px; max-width: 600px; margin: auto; }
+    .card { background: #1e293b; padding: 20px; border-radius: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); border-left: 5px solid #38bdf8; transition: 0.3s; }
+    .card:active { transform: scale(0.98); }
+    .title { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 8px; }
+    .value { font-size: 36px; font-weight: bold; color: #38bdf8; }
+    .unit { font-size: 18px; color: #64748b; margin-left: 5px; }
+    
+    /* Tabs Navigation */
+    .tabs { position: fixed; bottom: 0; width: 100%; display: flex; background: #1e293b; border-top: 1px solid #334155; z-index: 100; }
+    .tab-button { flex: 1; padding: 15px; background: none; border: none; color: #94a3b8; cursor: pointer; font-weight: bold; }
+    .tab-button.active { color: #38bdf8; border-top: 3px solid #38bdf8; background: rgba(56, 189, 248, 0.1); }
+    .tab-content { display: none; animation: fadeIn 0.3s; }
+    .tab-content.active { display: block; }
 
-    .content {
-      padding: 20px;
-      padding-bottom: 80px;
-    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-    .card {
-      background: #1e293b;
-      padding: 20px;
-      border-radius: 10px;
-      margin-bottom: 15px;
-      box-shadow: 0 0 10px rgba(0,255,255,0.2);
-    }
-
-    .title {
-      font-size: 18px;
-      color: #38bdf8;
-      margin-bottom: 10px;
-    }
-
-    .value {
-      font-size: 28px;
-      font-weight: bold;
-    }
-
-    .tabs {
-      position: fixed;
-      bottom: 0;
-      width: 100%;
-      display: flex;
-      background: #020617;
-      border-top: 1px solid #334155;
-    }
-
-    .tab-button {
-      flex: 1;
-      padding: 15px;
-      background: none;
-      border: none;
-      color: #94a3b8;
-      cursor: pointer;
-    }
-
-    .tab-button.active {
-      color: #38bdf8;
-    }
-
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: block;
-    }
-
-    button {
-      padding: 10px 20px;
-      background: #38bdf8;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
+    button.control-btn { width: 100%; padding: 15px; background: #38bdf8; border: none; border-radius: 10px; color: #0f172a; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; }
+    #status-text { margin-top: 10px; display: block; text-align: center; color: #38bdf8; }
   </style>
 </head>
-
 <body>
 
 <div class="content">
-
-  <!-- TAB 1 -->
   <div class="tab-content active" id="tab0">
+    <h2 style="color: #38bdf8;">Giám sát hệ thống</h2>
     <div class="card">
-      <div class="title">🌡 Nhiệt độ</div>
-      <div class="value" id="temp">--</div>
+      <div class="title">🌡 Nhiệt độ hiện tại</div>
+      <div class="value"><span id="temp">--</span><span class="unit">°C</span></div>
     </div>
 
-    <div class="card">
-      <div class="title">💧 Độ ẩm</div>
-      <div class="value" id="hum">--</div>
+    <div class="card" style="border-left-color: #10b981;">
+      <div class="title">💧 Độ ẩm không khí</div>
+      <div class="value"><span id="hum">--</span><span class="unit">%</span></div>
     </div>
   </div>
 
-  <!-- TAB 2 -->
   <div class="tab-content" id="tab1">
-    <div class="card">
-      <div class="title">Thiết bị</div>
-      <button onclick="toggleDevice()">Bật / Tắt</button>
+    <h2>Điều khiển thiết bị</h2>
+    <div class="card" style="border-left-color: #f59e0b;">
+      <div class="title">Trạng thái Relay</div>
+      <div id="status-text">Đang tải...</div>
+      <button class="control-btn" onclick="toggleDevice()">ĐỔI TRẠNG THÁI</button>
     </div>
   </div>
 
-  <!-- TAB 3 -->
-  <div class="tab-content" id="tab2">
-    <div class="card">Biểu đồ (sau này thêm)</div>
-  </div>
-
-  <!-- TAB 4 -->
-  <div class="tab-content" id="tab3">
-    <div class="card">Cảnh báo</div>
-  </div>
-
-  <!-- TAB 5 -->
-  <div class="tab-content" id="tab4">
-    <div class="card">Cài đặt</div>
-  </div>
-
+  <div class="tab-content" id="tab2"><div class="card">Biểu đồ đang được phát triển...</div></div>
 </div>
 
-<!-- TAB BAR -->
 <div class="tabs">
   <button class="tab-button active" onclick="openTab(0)">Home</button>
   <button class="tab-button" onclick="openTab(1)">Control</button>
   <button class="tab-button" onclick="openTab(2)">Chart</button>
-  <button class="tab-button" onclick="openTab(3)">Alert</button>
-  <button class="tab-button" onclick="openTab(4)">Setting</button>
 </div>
 
-<!-- FIREBASE -->
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
 <script>
+// Cấu hình Firebase của Khang
 const firebaseConfig = {
   apiKey: "AIzaSyBWRpQCnDWV5YQpoXZ_o7aqfGdv_7yUT38",
   authDomain: "wed-demo-d236a.firebaseapp.com",
@@ -142,36 +77,50 @@ const firebaseConfig = {
   measurementId: "G-BH83JZJ8CN"
 };
 
-firebase.initializeApp(firebaseConfig);
-var db = firebase.database();
+// Khởi tạo
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+const db = firebase.database();
 
-// LẤY DỮ LIỆU REALTIME
-db.ref("data").on("value", function(snapshot) {
-  let data = snapshot.val();
-
+// 1. LẤY DỮ LIỆU NHIỆT ĐỘ & ĐỘ ẨM (Nhánh 'data')
+db.ref("data").on("value", (snapshot) => {
+  const data = snapshot.val();
   if (data) {
-    document.getElementById("temp").innerText = data.temp + " °C";
-    document.getElementById("hum").innerText = data.hum + " %";
+    document.getElementById("temp").innerText = data.temp || "0";
+    document.getElementById("hum").innerText = data.hum || "0";
+    console.log("Cập nhật sensor:", data);
   }
+}, (error) => console.error("Lỗi sensor:", error));
+
+// 2. LẤY TRẠNG THÁI THIẾT BỊ (Nhánh 'device')
+let currentStatus = 0;
+db.ref("device/status").on("value", (snapshot) => {
+  currentStatus = snapshot.val() || 0;
+  const statusLabel = document.getElementById("status-text");
+  statusLabel.innerText = currentStatus === 1 ? "THIẾT BỊ ĐANG: BẬT" : "THIẾT BỊ ĐANG: TẮT";
+  statusLabel.style.color = currentStatus === 1 ? "#10b981" : "#ef4444";
 });
 
-// GỬI LỆNH (bật/tắt)
+// 3. GỬI LỆNH ĐIỀU KHIỂN (Đảo trạng thái)
 function toggleDevice() {
+  const newStatus = currentStatus === 1 ? 0 : 1;
   db.ref("device").set({
-    status: Math.random() > 0.5 ? 1 : 0
-  });
+    status: newStatus,
+    lastUpdate: firebase.database.ServerValue.TIMESTAMP
+  }).then(() => {
+    console.log("Đã đổi trạng thái sang:", newStatus);
+  }).catch(err => alert("Lỗi điều khiển: " + err.message));
 }
 
-// TAB SWITCH
+// 4. CHUYỂN TAB
 function openTab(index) {
-  let tabs = document.querySelectorAll(".tab-content");
-  let buttons = document.querySelectorAll(".tab-button");
-
-  tabs.forEach(t => t.classList.remove("active"));
-  buttons.forEach(b => b.classList.remove("active"));
-
-  tabs[index].classList.add("active");
-  buttons[index].classList.add("active");
+  const tabs = document.querySelectorAll(".tab-content");
+  const buttons = document.querySelectorAll(".tab-button");
+  tabs.forEach((t, i) => {
+    t.classList.toggle("active", i === index);
+    buttons[i].classList.toggle("active", i === index);
+  });
 }
 </script>
 
