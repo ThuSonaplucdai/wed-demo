@@ -3,126 +3,119 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IoT SCADA Dashboard - Firebase V8</title>
-
+  <title>IoT Dashboard - Khang</title>
   <style>
-    body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: white; }
-    .content { padding: 20px; padding-bottom: 80px; max-width: 600px; margin: auto; }
-    .card { background: #1e293b; padding: 20px; border-radius: 15px; margin-bottom: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); border-left: 5px solid #38bdf8; transition: 0.3s; }
-    .card:active { transform: scale(0.98); }
-    .title { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 8px; }
-    .value { font-size: 36px; font-weight: bold; color: #38bdf8; }
-    .unit { font-size: 18px; color: #64748b; margin-left: 5px; }
+    body { margin: 0; font-family: sans-serif; background: #0f172a; color: white; overflow-x: hidden; }
     
-    /* Tabs Navigation */
-    .tabs { position: fixed; bottom: 0; width: 100%; display: flex; background: #1e293b; border-top: 1px solid #334155; z-index: 100; }
-    .tab-button { flex: 1; padding: 15px; background: none; border: none; color: #94a3b8; cursor: pointer; font-weight: bold; }
-    .tab-button.active { color: #38bdf8; border-top: 3px solid #38bdf8; background: rgba(56, 189, 248, 0.1); }
-    .tab-content { display: none; animation: fadeIn 0.3s; }
-    .tab-content.active { display: block; }
+    /* Thanh cảnh báo chạy chữ */
+    #connection-warning {
+      position: fixed; top: 0; left: 0; width: 100%; background: #ef4444; color: white;
+      padding: 5px 0; font-weight: bold; z-index: 1000; display: none;
+    }
+    marquee { display: block; width: 100%; }
 
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-    button.control-btn { width: 100%; padding: 15px; background: #38bdf8; border: none; border-radius: 10px; color: #0f172a; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; }
-    #status-text { margin-top: 10px; display: block; text-align: center; color: #38bdf8; }
+    .content { padding: 40px 20px; max-width: 500px; margin: auto; }
+    .card { 
+      background: #1e293b; padding: 25px; border-radius: 15px; 
+      margin-bottom: 20px; border-left: 6px solid #38bdf8; 
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+    }
+    .title { color: #94a3b8; font-size: 14px; text-transform: uppercase; margin-bottom: 10px; }
+    .value { font-size: 48px; font-weight: bold; color: #38bdf8; }
+    .unit { font-size: 20px; color: #64748b; margin-left: 8px; }
+    
+    .btn-control {
+      width: 100%; padding: 15px; background: #38bdf8; border: none;
+      border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px;
+    }
+    .status-dot { height: 10px; width: 10px; background: #10b981; border-radius: 50%; display: inline-block; margin-right: 5px; }
   </style>
 </head>
 <body>
 
-<div class="content">
-  <div class="tab-content active" id="tab0">
-    <h2 style="color: #38bdf8;">Giám sát hệ thống</h2>
+  <div id="connection-warning">
+    <marquee scrollamount="8">⚠️ MẤT KẾT NỐI VỚI FIREBASE - VUI LÒNG KIỂM TRA MẠNG HOẶC CẤU HÌNH DATABASE!</marquee>
+  </div>
+
+  <div class="content">
+    <h2 style="text-align: center; color: #38bdf8;">HỆ THỐNG SCADA</h2>
+    
     <div class="card">
-      <div class="title">🌡 Nhiệt độ hiện tại</div>
+      <div class="title">🌡 Nhiệt độ</div>
       <div class="value"><span id="temp">--</span><span class="unit">°C</span></div>
     </div>
 
     <div class="card" style="border-left-color: #10b981;">
-      <div class="title">💧 Độ ẩm không khí</div>
+      <div class="title">💧 Độ ẩm</div>
       <div class="value"><span id="hum">--</span><span class="unit">%</span></div>
     </div>
-  </div>
 
-  <div class="tab-content" id="tab1">
-    <h2>Điều khiển thiết bị</h2>
     <div class="card" style="border-left-color: #f59e0b;">
-      <div class="title">Trạng thái Relay</div>
-      <div id="status-text">Đang tải...</div>
-      <button class="control-btn" onclick="toggleDevice()">ĐỔI TRẠNG THÁI</button>
+      <div class="title">Điều khiển Relay</div>
+      <p id="device-text" style="text-align: center;">Đang kiểm tra...</p>
+      <button class="btn-control" onclick="toggleRelay()">ĐỔI TRẠNG THÁI</button>
     </div>
   </div>
 
-  <div class="tab-content" id="tab2"><div class="card">Biểu đồ đang được phát triển...</div></div>
-</div>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
-<div class="tabs">
-  <button class="tab-button active" onclick="openTab(0)">Home</button>
-  <button class="tab-button" onclick="openTab(1)">Control</button>
-  <button class="tab-button" onclick="openTab(2)">Chart</button>
-</div>
+  <script>
+    // Cấu hình chuẩn từ ảnh image_c7d8a8.png của Khang
+    const firebaseConfig = {
+      apiKey: "AIzaSyBWRpQCnDWV5YQpoXZ_o7aqfGdv_7yUT38",
+      authDomain: "wed-demo-d236a.firebaseapp.com",
+      databaseURL: "https://wed-demo-d236a-default-rtdb.firebaseio.com",
+      projectId: "wed-demo-d236a",
+      storageBucket: "wed-demo-d236a.firebasestorage.app",
+      messagingSenderId: "410178635616",
+      appId: "1:410178635616:web:c4d513a888176847198005",
+      measurementId: "G-BH83JZJ8CN"
+    };
 
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-
-<script>
-// Cấu hình Firebase của Khang
-const firebaseConfig = {
-  apiKey: "AIzaSyBWRpQCnDWV5YQpoXZ_o7aqfGdv_7yUT38",
-  authDomain: "wed-demo-d236a.firebaseapp.com",
-  databaseURL: "https://wed-demo-d236a-default-rtdb.firebaseio.com/",
-  projectId: "wed-demo-d236a",
-  storageBucket: "wed-demo-d236a.firebasestorage.app",
-  messagingSenderId: "410178635616",
-  appId: "1:410178635616:web:c4d513a888176847198005",
-  measurementId: "G-BH83JZJ8CN"
-};
-
-// Khởi tạo
-if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
-}
-const db = firebase.database();
+    const db = firebase.database();
+    const warningBar = document.getElementById("connection-warning");
 
-// 1. LẤY DỮ LIỆU NHIỆT ĐỘ & ĐỘ ẨM (Nhánh 'data')
-db.ref("data").on("value", (snapshot) => {
-  const data = snapshot.val();
-  if (data) {
-    document.getElementById("temp").innerText = data.temp || "0";
-    document.getElementById("hum").innerText = data.hum || "0";
-    console.log("Cập nhật sensor:", data);
-  }
-}, (error) => console.error("Lỗi sensor:", error));
+    // 1. KIỂM TRA KẾT NỐI THỜI GIAN THỰC
+    db.ref(".info/connected").on("value", (snap) => {
+      if (snap.val() === true) {
+        warningBar.style.display = "none";
+        console.log("Kết nối OK");
+      } else {
+        warningBar.style.display = "block";
+        console.log("Mất kết nối");
+      }
+    });
 
-// 2. LẤY TRẠNG THÁI THIẾT BỊ (Nhánh 'device')
-let currentStatus = 0;
-db.ref("device/status").on("value", (snapshot) => {
-  currentStatus = snapshot.val() || 0;
-  const statusLabel = document.getElementById("status-text");
-  statusLabel.innerText = currentStatus === 1 ? "THIẾT BỊ ĐANG: BẬT" : "THIẾT BỊ ĐANG: TẮT";
-  statusLabel.style.color = currentStatus === 1 ? "#10b981" : "#ef4444";
-});
+    // 2. LẤY DỮ LIỆU NHIỆT ĐỘ & ĐỘ ẨM (Nhánh 'data')
+    db.ref("data").on("value", (snapshot) => {
+      const val = snapshot.val();
+      if (val) {
+        document.getElementById("temp").innerText = val.temp || "0";
+        document.getElementById("hum").innerText = val.hum || "0";
+      }
+    }, (error) => {
+      console.error("Lỗi Rules:", error);
+      warningBar.style.display = "block";
+    });
 
-// 3. GỬI LỆNH ĐIỀU KHIỂN (Đảo trạng thái)
-function toggleDevice() {
-  const newStatus = currentStatus === 1 ? 0 : 1;
-  db.ref("device").set({
-    status: newStatus,
-    lastUpdate: firebase.database.ServerValue.TIMESTAMP
-  }).then(() => {
-    console.log("Đã đổi trạng thái sang:", newStatus);
-  }).catch(err => alert("Lỗi điều khiển: " + err.message));
-}
+    // 3. ĐIỀU KHIỂN THIẾT BỊ (Nhánh 'device')
+    let currentStatus = 0;
+    db.ref("device/status").on("value", (snapshot) => {
+      currentStatus = snapshot.val() || 0;
+      const txt = document.getElementById("device-text");
+      txt.innerText = currentStatus === 1 ? "TRẠNG THÁI: ĐANG BẬT" : "TRẠNG THÁI: ĐANG TẮT";
+      txt.style.color = currentStatus === 1 ? "#10b981" : "#ef4444";
+    });
 
-// 4. CHUYỂN TAB
-function openTab(index) {
-  const tabs = document.querySelectorAll(".tab-content");
-  const buttons = document.querySelectorAll(".tab-button");
-  tabs.forEach((t, i) => {
-    t.classList.toggle("active", i === index);
-    buttons[i].classList.toggle("active", i === index);
-  });
-}
-</script>
-
+    function toggleRelay() {
+      const nextStatus = currentStatus === 1 ? 0 : 1;
+      db.ref("device").update({
+        status: nextStatus,
+        lastUpdate: Date.now()
+      });
+    }
+  </script>
 </body>
 </html>
