@@ -2,40 +2,68 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>IoT Dashboard</title>
+  <title>SCADA Dashboard</title>
+
   <style>
     body {
-      font-family: Arial;
       margin: 0;
+      font-family: Arial;
+      background: #0f172a;
+      color: white;
     }
 
-    /* Thanh tab */
+    /* Nội dung */
+    .content {
+      padding: 20px;
+      padding-bottom: 80px;
+    }
+
+    /* Box kiểu SCADA */
+    .card {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 15px;
+      box-shadow: 0 0 10px rgba(0,255,255,0.2);
+    }
+
+    .title {
+      font-size: 18px;
+      margin-bottom: 10px;
+      color: #38bdf8;
+    }
+
+    .value {
+      font-size: 30px;
+      font-weight: bold;
+    }
+
+    /* Thanh tab dưới */
     .tabs {
+      position: fixed;
+      bottom: 0;
+      width: 100%;
       display: flex;
-      background: #333;
+      background: #020617;
+      border-top: 1px solid #334155;
     }
 
     .tab-button {
       flex: 1;
       padding: 15px;
-      color: white;
-      background: #333;
+      background: none;
       border: none;
+      color: #94a3b8;
       cursor: pointer;
     }
 
-    .tab-button:hover {
-      background: #555;
-    }
-
     .tab-button.active {
-      background: #007bff;
+      color: #38bdf8;
     }
 
-    /* Nội dung tab */
+    /* Ẩn/hiện tab */
     .tab-content {
       display: none;
-      padding: 20px;
     }
 
     .tab-content.active {
@@ -43,36 +71,70 @@
     }
   </style>
 </head>
+
 <body>
 
-  <!-- Tabs -->
-  <div class="tabs">
-    <button class="tab-button active" onclick="openTab(0)">Tab 1</button>
-    <button class="tab-button" onclick="openTab(1)">Tab 2</button>
-    <button class="tab-button" onclick="openTab(2)">Tab 3</button>
-    <button class="tab-button" onclick="openTab(3)">Tab 4</button>
-    <button class="tab-button" onclick="openTab(4)">Tab 5</button>
+<div class="content">
+
+  <!-- TAB 1 -->
+  <div class="tab-content active">
+    <div class="card">
+      <div class="title">Nhiệt độ</div>
+      <div class="value">30°C</div>
+    </div>
+
+    <div class="card">
+      <div class="title">Độ ẩm</div>
+      <div class="value">70%</div>
+    </div>
   </div>
 
-  <!-- Nội dung -->
-  <div class="tab-content active">Nội dung Tab 1</div>
-  <div class="tab-content">Nội dung Tab 2</div>
-  <div class="tab-content">Nội dung Tab 3</div>
-  <div class="tab-content">Nội dung Tab 4</div>
-  <div class="tab-content">Nội dung Tab 5</div>
+  <!-- TAB 2 -->
+  <div class="tab-content">
+    <div class="card">
+      <div class="title">Thiết bị</div>
+      <button>Bật / Tắt</button>
+    </div>
+  </div>
 
-  <script>
-    function openTab(index) {
-      let tabs = document.querySelectorAll(".tab-content");
-      let buttons = document.querySelectorAll(".tab-button");
+  <!-- TAB 3 -->
+  <div class="tab-content">
+    <div class="card">Biểu đồ (sau này thêm)</div>
+  </div>
 
-      tabs.forEach(tab => tab.classList.remove("active"));
-      buttons.forEach(btn => btn.classList.remove("active"));
+  <!-- TAB 4 -->
+  <div class="tab-content">
+    <div class="card">Cảnh báo</div>
+  </div>
 
-      tabs[index].classList.add("active");
-      buttons[index].classList.add("active");
-    }
-  </script>
+  <!-- TAB 5 -->
+  <div class="tab-content">
+    <div class="card">Cài đặt</div>
+  </div>
+
+</div>
+
+<!-- TAB BAR -->
+<div class="tabs">
+  <button class="tab-button active" onclick="openTab(0)">Home</button>
+  <button class="tab-button" onclick="openTab(1)">Control</button>
+  <button class="tab-button" onclick="openTab(2)">Chart</button>
+  <button class="tab-button" onclick="openTab(3)">Alert</button>
+  <button class="tab-button" onclick="openTab(4)">Setting</button>
+</div>
+
+<script>
+function openTab(index) {
+  let tabs = document.querySelectorAll(".tab-content");
+  let buttons = document.querySelectorAll(".tab-button");
+
+  tabs.forEach(t => t.classList.remove("active"));
+  buttons.forEach(b => b.classList.remove("active"));
+
+  tabs[index].classList.add("active");
+  buttons[index].classList.add("active");
+}
+</script>
 
 </body>
 </html>
