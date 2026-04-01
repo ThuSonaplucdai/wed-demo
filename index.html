@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>SCADA Dashboard</title>
+  <title>IoT SCADA Dashboard</title>
 
   <style>
     body {
@@ -12,13 +12,11 @@
       color: white;
     }
 
-    /* Nội dung */
     .content {
       padding: 20px;
       padding-bottom: 80px;
     }
 
-    /* Box kiểu SCADA */
     .card {
       background: #1e293b;
       padding: 20px;
@@ -29,16 +27,15 @@
 
     .title {
       font-size: 18px;
-      margin-bottom: 10px;
       color: #38bdf8;
+      margin-bottom: 10px;
     }
 
     .value {
-      font-size: 30px;
+      font-size: 28px;
       font-weight: bold;
     }
 
-    /* Thanh tab dưới */
     .tabs {
       position: fixed;
       bottom: 0;
@@ -61,13 +58,20 @@
       color: #38bdf8;
     }
 
-    /* Ẩn/hiện tab */
     .tab-content {
       display: none;
     }
 
     .tab-content.active {
       display: block;
+    }
+
+    button {
+      padding: 10px 20px;
+      background: #38bdf8;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -77,38 +81,38 @@
 <div class="content">
 
   <!-- TAB 1 -->
-  <div class="tab-content active">
+  <div class="tab-content active" id="tab0">
     <div class="card">
-      <div class="title">Nhiệt độ</div>
-      <div class="value">30°C</div>
+      <div class="title">🌡 Nhiệt độ</div>
+      <div class="value" id="temp">--</div>
     </div>
 
     <div class="card">
-      <div class="title">Độ ẩm</div>
-      <div class="value">70%</div>
+      <div class="title">💧 Độ ẩm</div>
+      <div class="value" id="hum">--</div>
     </div>
   </div>
 
   <!-- TAB 2 -->
-  <div class="tab-content">
+  <div class="tab-content" id="tab1">
     <div class="card">
       <div class="title">Thiết bị</div>
-      <button>Bật / Tắt</button>
+      <button onclick="toggleDevice()">Bật / Tắt</button>
     </div>
   </div>
 
   <!-- TAB 3 -->
-  <div class="tab-content">
+  <div class="tab-content" id="tab2">
     <div class="card">Biểu đồ (sau này thêm)</div>
   </div>
 
   <!-- TAB 4 -->
-  <div class="tab-content">
+  <div class="tab-content" id="tab3">
     <div class="card">Cảnh báo</div>
   </div>
 
   <!-- TAB 5 -->
-  <div class="tab-content">
+  <div class="tab-content" id="tab4">
     <div class="card">Cài đặt</div>
   </div>
 
@@ -123,7 +127,42 @@
   <button class="tab-button" onclick="openTab(4)">Setting</button>
 </div>
 
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase.js"></script>
+
 <script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBWRpQCnDWV5YQpoXZ_o7aqfGdv_7yUT38",
+  authDomain: "wed-demo-d236a.firebaseapp.com",
+  databaseURL: "https://wed-demo-d236a-default-rtdb.firebaseio.com",
+  projectId: "wed-demo-d236a",
+  storageBucket: "wed-demo-d236a.firebasestorage.app",
+  messagingSenderId: "410178635616",
+  appId: "1:410178635616:web:c4d513a888176847198005",
+  measurementId: "G-BH83JZJ8CN"
+};
+
+firebase.initializeApp(firebaseConfig);
+var db = firebase.database();
+
+// LẤY DỮ LIỆU REALTIME
+db.ref("data").on("value", function(snapshot) {
+  let data = snapshot.val();
+
+  if (data) {
+    document.getElementById("temp").innerText = data.temp + " °C";
+    document.getElementById("hum").innerText = data.hum + " %";
+  }
+});
+
+// GỬI LỆNH (bật/tắt)
+function toggleDevice() {
+  db.ref("device").set({
+    status: Math.random() > 0.5 ? 1 : 0
+  });
+}
+
+// TAB SWITCH
 function openTab(index) {
   let tabs = document.querySelectorAll(".tab-content");
   let buttons = document.querySelectorAll(".tab-button");
@@ -135,7 +174,6 @@ function openTab(index) {
   buttons[index].classList.add("active");
 }
 </script>
-  <!-- rebuild -->
 
 </body>
 </html>
