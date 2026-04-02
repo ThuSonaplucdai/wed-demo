@@ -233,7 +233,16 @@
       if (v.scrollLeft + v.clientWidth >= v.scrollWidth - 150) scrollToEnd();
     }
   });
-
+db.ref(".info/connected").on("value", (snap) => {
+    if (snap.val() === true) {
+      bar.style.display = "block"; bar.style.background = "#10b981";
+      bar.innerHTML = `<marquee scrollamount="25">✅ HỆ THỐNG TRỰC TUYẾN</marquee>`;
+      setTimeout(() => bar.style.display = "none", 5000);
+    } else {
+      bar.style.display = "block"; bar.style.background = "#ef4444";
+      bar.innerHTML = `<marquee scrollamount="25">⚠️ CẢNH BÁO: MẤT KẾT NỐI SERVER!</marquee>`;
+    }
+  });
   setInterval(() => { document.getElementById("live-clock").innerText = new Date().toLocaleTimeString(); }, 1000);
 </script>
 </body>
