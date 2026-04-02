@@ -3,57 +3,159 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IoT Dashboard - Khang</title>
+  <title>Hệ Thống Quản Lý SCADA - Khang</title>
   <style>
-    body { margin: 0; font-family: sans-serif; background: #0f172a; color: white; overflow-x: hidden; }
-    
-    /* Thanh cảnh báo chạy chữ */
-    #connection-warning {
-      position: fixed; top: 0; left: 0; width: 100%; background: #ef4444; color: white;
-      padding: 5px 0; font-weight: bold; z-index: 1000; display: none;
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --primary: #38bdf8;
+      --success: #10b981;
+      --danger: #ef4444;
+      --text: #f8fafc;
+      --text-dim: #94a3b8;
     }
-    marquee { display: block; width: 100%; }
 
-    .content { padding: 40px 20px; max-width: 500px; margin: auto; }
-    .card { 
-      background: #1e293b; padding: 25px; border-radius: 15px; 
-      margin-bottom: 20px; border-left: 6px solid #38bdf8; 
-      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+    body { 
+      margin: 0; font-family: 'Segoe UI', Arial, sans-serif; 
+      background: var(--bg); color: var(--text); 
+      overflow-x: hidden;
     }
-    .title { color: #94a3b8; font-size: 14px; text-transform: uppercase; margin-bottom: 10px; }
-    .value { font-size: 48px; font-weight: bold; color: #38bdf8; }
-    .unit { font-size: 20px; color: #64748b; margin-left: 8px; }
+
+    /* 1. THANH THÔNG BÁO (YÊU CẦU 1) */
+    #status-bar {
+      position: fixed; top: 0; left: 0; width: 100%; 
+      z-index: 9999; height: 35px; line-height: 35px;
+      font-weight: bold; display: none; font-size: 14px;
+    }
+    .bg-error { background: var(--danger); color: white; }
+    .bg-success { background: var(--success); color: white; }
+
+    /* 2. GIAO DIỆN TRANG CHỦ (YÊU CẦU 2) */
+    .container { max-width: 1000px; margin: auto; padding: 60px 20px; }
     
+    .header { text-align: center; margin-bottom: 40px; }
+    .header h1 { color: var(--primary); margin-bottom: 10px; }
+
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 25px;
+    }
+
+    .product-card {
+      background: var(--card); border-radius: 20px; 
+      overflow: hidden; border: 1px solid #334155;
+      transition: 0.3s; cursor: pointer;
+    }
+    .product-card:hover {
+      transform: translateY(-8px);
+      border-color: var(--primary);
+      box-shadow: 0 10px 30px rgba(56, 189, 248, 0.15);
+    }
+
+    .product-img {
+      height: 140px; background: #1e293b;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 50px; border-bottom: 1px solid #334155;
+    }
+
+    .product-info { padding: 20px; }
+    .product-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+    .product-desc { font-size: 14px; color: var(--text-dim); line-height: 1.5; margin-bottom: 20px; }
+
+    .btn-view {
+      width: 100%; padding: 12px; background: var(--primary);
+      border: none; border-radius: 10px; font-weight: bold;
+      color: var(--bg); cursor: pointer; transition: 0.2s;
+    }
+
+    /* 3. TRANG CHI TIẾT SCADA */
+    .detail-page { display: none; animation: fadeIn 0.4s; }
+    
+    .top-bar {
+      background: var(--card); padding: 15px 20px;
+      display: flex; align-items: center;
+      border-bottom: 1px solid #334155;
+    }
+    .btn-back {
+      background: #334155; color: white; border: none;
+      padding: 8px 15px; border-radius: 8px; cursor: pointer; margin-right: 15px;
+    }
+
+    .scada-content { max-width: 500px; margin: 40px auto; padding: 0 20px; }
+    .data-card {
+      background: var(--card); padding: 25px; border-radius: 15px;
+      margin-bottom: 20px; border-left: 6px solid var(--primary);
+      box-shadow: 0 10px 15px rgba(0,0,0,0.2);
+    }
+    .data-title { color: var(--text-dim); font-size: 14px; text-transform: uppercase; margin-bottom: 10px; }
+    .data-value { font-size: 48px; font-weight: bold; color: var(--primary); }
+    .unit { font-size: 20px; color: var(--text-dim); margin-left: 8px; }
+
     .btn-control {
-      width: 100%; padding: 15px; background: #38bdf8; border: none;
+      width: 100%; padding: 15px; background: var(--primary); border: none;
       border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px;
     }
-    .status-dot { height: 10px; width: 10px; background: #10b981; border-radius: 50%; display: inline-block; margin-right: 5px; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
   </style>
 </head>
 <body>
 
-  <div id="connection-warning">
-    <marquee scrollamount="8">⚠️ MẤT KẾT NỐI VỚI FIREBASE - VUI LÒNG KIỂM TRA MẠNG HOẶC CẤU HÌNH DATABASE!</marquee>
+  <div id="status-bar"></div>
+
+  <div id="page-home" class="container">
+    <div class="header">
+      <h1>HỆ THỐNG QUẢN LÝ</h1>
+      <p>Danh sách các trạm giám sát thời gian thực</p>
+    </div>
+
+    <div class="product-grid">
+      <div class="product-card" onclick="openPage('page-detail')">
+        <div class="product-img">📡</div>
+        <div class="product-info">
+          <div class="product-title">Hệ Thống Trạm 01</div>
+          <p class="product-desc">Giám sát thông số môi trường Nhiệt độ & Độ ẩm. Điều khiển thiết bị Relay qua Cloud Firebase.</p>
+          <button class="btn-view">TRUY CẬP HỆ THỐNG</button>
+        </div>
+      </div>
+
+      <div class="product-card" onclick="alert('Trạm này hiện đang ngoại tuyến!')">
+        <div class="product-img" style="filter: grayscale(1);">🚜</div>
+        <div class="product-info">
+          <div class="product-title">Hệ Thống Tưới Tiêu</div>
+          <p class="product-desc">Tự động hóa lịch trình bơm nước và đo độ ẩm đất tại khu vực phía Nam.</p>
+          <button class="btn-view" style="background: #475569;">CHƯA KẾT NỐI</button>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="content">
-    <h2 style="text-align: center; color: #38bdf8;">HỆ THỐNG SCADA</h2>
-    
-    <div class="card">
-      <div class="title">🌡 Nhiệt độ</div>
-      <div class="value"><span id="temp">--</span><span class="unit">°C</span></div>
+  <div id="page-detail" class="detail-page">
+    <div class="top-bar">
+      <button class="btn-back" onclick="openPage('page-home')">⬅ Quay lại</button>
+      <span style="font-weight: bold; color: var(--primary);">CHI TIẾT: TRẠM 01</span>
     </div>
 
-    <div class="card" style="border-left-color: #10b981;">
-      <div class="title">💧 Độ ẩm</div>
-      <div class="value"><span id="hum">--</span><span class="unit">%</span></div>
-    </div>
+    <div class="scada-content">
+      <div class="data-card">
+        <div class="data-title">Nhiệt độ hiện tại</div>
+        <div class="data-value"><span id="temp">--</span><span class="unit">°C</span></div>
+      </div>
 
-    <div class="card" style="border-left-color: #f59e0b;">
-      <div class="title">Điều khiển Relay</div>
-      <p id="device-text" style="text-align: center;">Đang kiểm tra...</p>
-      <button class="btn-control" onclick="toggleRelay()">ĐỔI TRẠNG THÁI</button>
+      <div class="data-card" style="border-left-color: var(--success);">
+        <div class="data-title">Độ ẩm không khí</div>
+        <div class="data-value"><span id="hum">--</span><span class="unit">%</span></div>
+      </div>
+
+      <div class="data-card" style="border-left-color: #f59e0b; text-align: center;">
+        <div class="data-title">Điều khiển thiết bị</div>
+        <p id="device-text" style="font-weight: bold; margin: 15px 0;">Đang kiểm tra...</p>
+        <button class="btn-control" onclick="toggleRelay()">ĐỔI TRẠNG THÁI RELAY</button>
+      </div>
     </div>
   </div>
 
@@ -61,7 +163,7 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
   <script>
-    // Cấu hình chuẩn từ ảnh image_c7d8a8.png của Khang
+    // Cấu hình Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyBWRpQCnDWV5YQpoXZ_o7aqfGdv_7yUT38",
       authDomain: "wed-demo-d236a.firebaseapp.com",
@@ -69,38 +171,43 @@
       projectId: "wed-demo-d236a",
       storageBucket: "wed-demo-d236a.firebasestorage.app",
       messagingSenderId: "410178635616",
-      appId: "1:410178635616:web:c4d513a888176847198005",
-      measurementId: "G-BH83JZJ8CN"
+      appId: "1:410178635616:web:c4d513a888176847198005"
     };
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-    const warningBar = document.getElementById("connection-warning");
 
-    // 1. KIỂM TRA KẾT NỐI THỜI GIAN THỰC
+    // --- XỬ LÝ CHUYỂN TRANG (YÊU CẦU 2) ---
+    function openPage(pageId) {
+      document.getElementById('page-home').style.display = (pageId === 'page-home') ? 'block' : 'none';
+      document.getElementById('page-detail').style.display = (pageId === 'page-detail') ? 'block' : 'none';
+      window.scrollTo(0,0);
+    }
+
+    // --- XỬ LÝ THÔNG BÁO KẾT NỐI (YÊU CẦU 1) ---
+    const statusBar = document.getElementById("status-bar");
     db.ref(".info/connected").on("value", (snap) => {
       if (snap.val() === true) {
-        warningBar.style.display = "none";
-        console.log("Kết nối OK");
+        statusBar.className = "bg-success";
+        statusBar.style.display = "block";
+        statusBar.innerHTML = `<marquee scrollamount="10" loop="1">✅ KẾT NỐI THÀNH CÔNG - DỮ LIỆU ĐÃ ĐƯỢC ĐỒNG BỘ!</marquee>`;
+        setTimeout(() => { if(snap.val() === true) statusBar.style.display = "none"; }, 6000);
       } else {
-        warningBar.style.display = "block";
-        console.log("Mất kết nối");
+        statusBar.className = "bg-error";
+        statusBar.style.display = "block";
+        statusBar.innerHTML = `<marquee scrollamount="8">⚠️ MẤT KẾT NỐI FIREBASE - ĐANG THỬ LẠI...</marquee>`;
       }
     });
 
-    // 2. LẤY DỮ LIỆU NHIỆT ĐỘ & ĐỘ ẨM (Nhánh 'data')
+    // --- LẤY DỮ LIỆU SCADA ---
     db.ref("data").on("value", (snapshot) => {
       const val = snapshot.val();
       if (val) {
         document.getElementById("temp").innerText = val.temp || "0";
         document.getElementById("hum").innerText = val.hum || "0";
       }
-    }, (error) => {
-      console.error("Lỗi Rules:", error);
-      warningBar.style.display = "block";
     });
 
-    // 3. ĐIỀU KHIỂN THIẾT BỊ (Nhánh 'device')
     let currentStatus = 0;
     db.ref("device/status").on("value", (snapshot) => {
       currentStatus = snapshot.val() || 0;
@@ -111,10 +218,7 @@
 
     function toggleRelay() {
       const nextStatus = currentStatus === 1 ? 0 : 1;
-      db.ref("device").update({
-        status: nextStatus,
-        lastUpdate: Date.now()
-      });
+      db.ref("device").update({ status: nextStatus });
     }
   </script>
 </body>
