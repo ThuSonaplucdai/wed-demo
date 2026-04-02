@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HMI SCADA SYSTEM - PREVIEW EDITION</title>
+  <title>SCADA HMI PRO - 24H MASTER SYSTEM</title>
   
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
@@ -11,75 +11,56 @@
 
   <style>
     :root {
-      --bg-deep: #020617;
-      --card-bg: #1e293b;
-      --primary: #38bdf8;
-      --success: #10b981;
-      --danger: #ef4444;
-      --text-main: #f8fafc;
-      --border: rgba(255,255,255,0.05);
+      --bg: #020617; --card: #1e293b; --primary: #38bdf8;
+      --success: #10b981; --danger: #ef4444; --text: #f8fafc;
     }
-
     body { 
       margin: 0; font-family: 'Inter', sans-serif; 
-      background: var(--bg-deep); color: var(--text-main); 
-      overflow-x: hidden;
+      background: var(--bg); color: var(--text); overflow-x: hidden;
     }
 
-    /* 1. THANH THÔNG BÁO CHẠY CHỮ TỐC ĐỘ CAO */
+    /* 1. THANH THÔNG BÁO TỐC ĐỘ 25 */
     #status-bar {
-      position: fixed; top: 0; width: 100%; z-index: 1000;
-      height: 35px; line-height: 35px; font-weight: bold;
-      display: none; text-align: center; font-size: 13px;
+      position: fixed; top: 0; width: 100%; height: 35px; line-height: 35px;
+      z-index: 9999; font-weight: bold; text-align: center; display: none;
     }
-    .bg-error { background: var(--danger); }
-    .bg-success { background: var(--success); }
 
-    /* 2. GIAO DIỆN TRANG CHỦ */
+    /* 2. TRANG CHỦ */
     .container { max-width: 1200px; margin: auto; padding: 60px 20px; }
-    .header-main { text-align: center; margin-bottom: 50px; }
-    .header-main h1 { font-size: 2.5rem; color: var(--primary); text-shadow: 0 0 20px rgba(56,189,248,0.3); }
-
     .grid-layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 30px; }
-
     .card-item {
-      background: var(--card-bg); border-radius: 24px; overflow: hidden;
-      border: 1px solid var(--border); transition: 0.4s; cursor: pointer;
+      background: var(--card); border-radius: 24px; padding: 20px;
+      border: 1px solid rgba(255,255,255,0.05); transition: 0.4s; cursor: pointer;
     }
-    .card-item:hover { transform: translateY(-10px); border-color: var(--primary); box-shadow: 0 20px 40px rgba(56,189,248,0.1); }
+    .card-item:hover { transform: translateY(-10px); border-color: var(--primary); }
+    .is-locked { opacity: 0.5; filter: grayscale(1); cursor: not-allowed; }
 
-    .card-img { height: 160px; display: flex; align-items: center; justify-content: center; font-size: 60px; background: rgba(255,255,255,0.02); }
-    .card-body { padding: 25px; }
-    .card-tag { background: var(--primary); color: #000; padding: 4px 12px; border-radius: 20px; font-size: 10px; font-weight: bold; }
-
-    /* 3. GIAO DIỆN CHI TIẾT SCADA */
-    .page-detail { display: none; animation: fadeIn 0.5s; padding: 20px; }
+    /* 3. TRANG CHI TIẾT SCADA */
+    .page-detail { display: none; animation: fadeIn 0.5s; padding: 20px; height: 100vh; box-sizing: border-box; display: flex; flex-direction: column; }
     .nav-top {
       display: flex; justify-content: space-between; align-items: center;
-      background: var(--card-bg); padding: 15px 25px; border-radius: 15px; margin-bottom: 25px;
+      background: var(--card); padding: 15px 25px; border-radius: 15px; margin-bottom: 20px;
     }
-    .btn-back { background: #334155; color: white; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer; }
-
-    .scada-grid { display: grid; grid-template-columns: 320px 1fr; gap: 25px; }
+    .scada-main { display: grid; grid-template-columns: 300px 1fr; gap: 20px; flex-grow: 1; min-height: 0; }
     
-    /* WIDGETS CHUYÊN NGHIỆP */
     .monitor-box {
-      background: var(--card-bg); padding: 25px; border-radius: 20px;
-      border-left: 8px solid var(--primary); margin-bottom: 20px; transition: 0.3s;
+      background: var(--card); padding: 20px; border-radius: 15px;
+      border-left: 6px solid var(--primary); margin-bottom: 15px;
     }
-    .monitor-value { font-size: 45px; font-weight: 800; display: flex; align-items: baseline; }
-    .unit { font-size: 18px; color: #64748b; margin-left: 8px; }
-
-    /* ALARM CHỚP ĐỎ */
-    .alarm-active { animation: alarm-pulse 1s infinite; border-left-color: var(--danger) !important; }
-    @keyframes alarm-pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 100% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); } }
-
-    .chart-box {
-      background: #0f172a; border-radius: 20px; padding: 20px;
-      border: 1px solid var(--border); height: 550px; position: relative;
+    .val-large { font-size: 40px; font-weight: 800; }
+    
+    .chart-container { 
+      background: #0f172a; border-radius: 15px; padding: 20px; 
+      border: 1px solid rgba(255,255,255,0.05); position: relative;
     }
 
-    .is-locked { opacity: 0.5; filter: grayscale(1); cursor: not-allowed; }
+    .btn-action {
+      width: 100%; padding: 12px; border: none; border-radius: 8px;
+      font-weight: bold; cursor: pointer; margin-top: 10px;
+    }
+
+    .alarm-active { animation: pulse 1s infinite; border-left-color: var(--danger) !important; }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 100% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   </style>
 </head>
@@ -88,55 +69,43 @@
 <div id="status-bar"></div>
 
 <div id="home-view" class="container">
-  <div class="header-main">
-    <h1>HỆ THỐNG SCADA TRỰC TUYẾN</h1>
-    <p style="color: #64748b;">Vui lòng chọn trạm vận hành</p>
-  </div>
-
+  <h1 style="text-align:center; color:var(--primary)">HỆ THỐNG SCADA TRỰC TUYẾN</h1>
   <div class="grid-layout">
-    <div class="card-item" onclick="changeView('detail-view')">
-      <div class="card-img">📊</div>
-      <div class="card-body">
-        <span class="card-tag">ONLINE</span>
-        <h3 style="margin: 10px 0;">Trạm Giám Sát 01</h3>
-        <button style="width:100%; padding:12px; background:var(--primary); border:none; border-radius:10px; font-weight:bold; cursor:pointer;">TRUY CẬP HỆ THỐNG</button>
-      </div>
+    <div class="card-item" onclick="showPage('detail-view')">
+      <div style="font-size: 50px; text-align: center;">📊</div>
+      <h3>Trạm Giám Sát 01</h3>
+      <p style="color: #64748b; font-size: 13px;">Hỗ trợ lưu trữ 24h & Zoom XY thông minh.</p>
+      <button class="btn-action" style="background: var(--primary);">MỞ TRẠM</button>
     </div>
-
     <div class="card-item is-locked">
-      <div class="card-img">🔒</div>
-      <div class="card-body">
-        <span class="card-tag" style="background:#475569; color:white;">LOCKED</span>
-        <h3 style="margin: 10px 0;">Trạm Giám Sát 02</h3>
-        <button disabled style="width:100%; padding:12px; background:#334155; border:none; border-radius:10px; color:#64748b;">ĐANG BẢO TRÌ</button>
-      </div>
+      <div style="font-size: 50px; text-align: center;">🔒</div>
+      <h3>Trạm Giám Sát 02</h3>
+      <button class="btn-action" style="background: #334155;" disabled>BẢO TRÌ</button>
     </div>
   </div>
 </div>
 
-<div id="detail-view" class="page-detail">
+<div id="detail-view" class="page-detail" style="display:none">
   <div class="nav-top">
-    <button class="btn-back" onclick="changeView('home-view')">⬅ QUAY LẠI</button>
-    <div style="text-align: right;">
-      <div style="color: var(--primary); font-weight: bold; font-size: 18px;">REAL-TIME MONITORING</div>
-      <small id="clock-display" style="color: #64748b; font-family: monospace;"></small>
-    </div>
+    <button onclick="showPage('home-view')" style="background:#334155; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer;">⬅ QUAY LẠI</button>
+    <div id="clock" style="font-family: monospace; color: var(--primary);">00:00:00</div>
   </div>
 
-  <div class="scada-grid">
-    <div class="monitor-col">
+  <div class="scada-main">
+    <div class="sidebar">
       <div class="monitor-box" id="box-temp">
-        <div style="color: #94a3b8; font-size: 12px; font-weight: bold;">TEMPERATURE</div>
-        <div class="monitor-value"><span id="val-temp">--</span><span class="unit">°C</span></div>
+        <small style="color:#94a3b8">TEMPERATURE</small>
+        <div class="val-large"><span id="txt-temp">--</span>°C</div>
       </div>
       <div class="monitor-box" style="border-left-color: var(--success);">
-        <div style="color: #94a3b8; font-size: 12px; font-weight: bold;">HUMIDITY</div>
-        <div class="monitor-value"><span id="val-hum">--</span><span class="unit">%</span></div>
+        <small style="color:#94a3b8">HUMIDITY</small>
+        <div class="val-large"><span id="txt-hum">--</span>%</div>
       </div>
-      <button style="width:100%; padding:15px; background:var(--primary); border:none; border-radius:12px; font-weight:bold; color:#000; cursor:pointer;" onclick="hmiChart.resetZoom()">RESET BIỂU ĐỒ</button>
+      <button class="btn-action" style="background:var(--primary)" onclick="resetToLive()">XEM TRỰC TIẾP</button>
+      <button class="btn-action" style="background:#475569; color:white;" onclick="hmiChart.resetZoom()">RESET ZOOM</button>
     </div>
 
-    <div class="chart-box">
+    <div class="chart-container">
       <canvas id="hmiChart"></canvas>
     </div>
   </div>
@@ -146,6 +115,7 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
 <script>
+  // FIREBASE CONFIG
   const firebaseConfig = {
     apiKey: "AIzaSyBWRpQCnDWV5YQpoXZ_o7aqfGdv_7yUT38",
     authDomain: "wed-demo-d236a.firebaseapp.com",
@@ -158,78 +128,84 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  function changeView(id) {
+  let isLive = true;
+
+  // CHUYỂN TRANG
+  function showPage(id) {
     document.getElementById('home-view').style.display = (id === 'home-view' ? 'block' : 'none');
-    document.getElementById('detail-view').style.display = (id === 'detail-view' ? 'block' : 'none');
+    document.getElementById('detail-view').style.display = (id === 'detail-view' ? 'flex' : 'none');
   }
 
-  // CẤU HÌNH CHART NÂNG CAO (Glow & Smooth)
+  // KHỞI TẠO BIỂU ĐỒ CHUẨN NGUYÊN TẮC ZOOM XY
   const ctx = document.getElementById('hmiChart').getContext('2d');
   const hmiChart = new Chart(ctx, {
     type: 'line',
     data: {
       datasets: [
-        { 
-          label: 'Nhiệt độ (°C)', data: [], borderColor: '#38bdf8', 
-          backgroundColor: 'rgba(56, 189, 248, 0.1)', borderWidth: 3, 
-          pointRadius: 0, tension: 0.4, fill: true 
-        },
-        { 
-          label: 'Độ ẩm (%)', data: [], borderColor: '#10b981', 
-          backgroundColor: 'rgba(16, 185, 129, 0.05)', borderWidth: 3, 
-          pointRadius: 0, tension: 0.4, fill: true 
-        }
+        { label: 'Nhiệt độ', data: [], borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', fill: true, tension: 0.4, pointRadius: 0 },
+        { label: 'Độ ẩm', data: [], borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.05)', fill: true, tension: 0.4, pointRadius: 0 }
       ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       scales: {
         x: { type: 'time', time: { unit: 'second' }, grid: { color: 'rgba(255,255,255,0.03)' } },
-        y: { grid: { color: 'rgba(255,255,255,0.03)' } }
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: false }
       },
       plugins: {
-        zoom: { pan: { enabled: true, mode: 'x' }, zoom: { wheel: { enabled: true }, mode: 'x' } },
-        tooltip: { mode: 'index', intersect: false }
+        zoom: {
+          pan: { enabled: true, mode: 'xy', onPanStart: () => isLive = false },
+          zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'xy', onZoomStart: () => isLive = false }
+        }
       }
     }
   });
 
-  // FIREBASE REALTIME
+  function resetToLive() { isLive = true; hmiChart.update(); }
+
+  // CẬP NHẬT DỮ LIỆU & LƯU TRỮ 24H
   db.ref("data").on("value", (snap) => {
-    const data = snap.val();
-    if (data) {
+    const val = snap.val();
+    if (val) {
       const now = new Date();
-      const t = parseFloat(data.temp);
-      const h = parseFloat(data.hum);
+      const t = parseFloat(val.temp);
+      const h = parseFloat(val.hum);
 
-      document.getElementById("val-temp").innerText = t;
-      document.getElementById("val-hum").innerText = h;
-      document.getElementById("clock-display").innerText = now.toLocaleString();
+      document.getElementById("txt-temp").innerText = t;
+      document.getElementById("txt-hum").innerText = h;
+      document.getElementById("clock").innerText = now.toLocaleTimeString();
 
-      // Alarm: Nháy đỏ nếu temp > 45
+      // Alarm
       if(t > 45) document.getElementById("box-temp").classList.add("alarm-active");
       else document.getElementById("box-temp").classList.remove("alarm-active");
 
+      // Push & Filter 24h
       hmiChart.data.datasets[0].data.push({ x: now, y: t });
       hmiChart.data.datasets[1].data.push({ x: now, y: h });
-      if (hmiChart.data.datasets[0].data.length > 50) {
-        hmiChart.data.datasets[0].data.shift();
-        hmiChart.data.datasets[1].data.shift();
+      
+      const limit24h = now.getTime() - (24 * 60 * 60 * 1000);
+      hmiChart.data.datasets.forEach(ds => {
+        ds.data = ds.data.filter(p => p.x.getTime() > limit24h);
+      });
+
+      if (isLive) {
+        hmiChart.options.scales.x.max = now.getTime();
+        hmiChart.options.scales.x.min = now.getTime() - (5 * 60 * 1000);
       }
       hmiChart.update('none');
     }
   });
 
-  // THÔNG BÁO CHẠY CHỮ TỐC ĐỘ CAO (Yêu cầu của Khang)
-  const statusBar = document.getElementById("status-bar");
+  // STATUS BAR TỐC ĐỘ 25
+  const bar = document.getElementById("status-bar");
   db.ref(".info/connected").on("value", (snap) => {
     if (snap.val() === true) {
-      statusBar.className = "bg-success"; statusBar.style.display = "block";
-      statusBar.innerHTML = `<marquee scrollamount="25" loop="1">✅ KẾT NỐI SERVER THÀNH CÔNG - HỆ THỐNG TRỰC TUYẾN ĐÃ SẴN SÀNG!</marquee>`;
-      setTimeout(() => { if(snap.val() === true) statusBar.style.display = "none"; }, 8000);
+      bar.className = "bg-success"; bar.style.display = "block"; bar.style.background = "#10b981";
+      bar.innerHTML = `<marquee scrollamount="25" loop="1">✅ KẾT NỐI THÀNH CÔNG - HỆ THỐNG LƯU TRỮ 24 GIỜ SẴN SÀNG</marquee>`;
+      setTimeout(() => bar.style.display = "none", 8000);
     } else {
-      statusBar.className = "bg-error"; statusBar.style.display = "block";
-      statusBar.innerHTML = `<marquee scrollamount="20">⚠️ CẢNH BÁO: MẤT KẾT NỐI VỚI HỆ THỐNG!</marquee>`;
+      bar.className = "bg-error"; bar.style.display = "block"; bar.style.background = "#ef4444";
+      bar.innerHTML = `<marquee scrollamount="20">⚠️ CẢNH BÁO: MẤT KẾT NỐI SERVER!</marquee>`;
     }
   });
 </script>
