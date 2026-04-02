@@ -3,11 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SCADA ULTIMATE - FUTURE MODE</title>
+  <title>SCADA ULTIMATE - SCROLLBAR & FUTURE EDITION</title>
   
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
 
   <style>
     :root {
@@ -16,48 +15,50 @@
     }
     body { 
       margin: 0; font-family: 'Segoe UI', sans-serif; 
-      background: var(--bg); color: var(--text); overflow-x: hidden;
+      background: var(--bg); color: var(--text); overflow: hidden;
       display: flex; flex-direction: column; height: 100vh;
     }
 
-    #status-bar {
-      position: fixed; top: 0; width: 100%; height: 35px; line-height: 35px;
-      z-index: 9999; font-weight: bold; text-align: center; display: none;
-    }
-
+    /* 1. GIAO DIỆN TRANG CHỦ */
     .home-container { max-width: 1100px; margin: auto; padding: 60px 20px; text-align: center; }
     .station-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-top: 40px; }
-    
     .station-card {
       background: var(--card); border-radius: 20px; padding: 30px;
       border: 1px solid rgba(255,255,255,0.05); transition: 0.4s; cursor: pointer;
     }
     .station-card:hover { transform: translateY(-10px); border-color: var(--primary); }
 
+    /* 2. GIAO DIỆN CHI TIẾT */
     .detail-view { display: none; flex-direction: column; height: 100vh; padding: 15px; box-sizing: border-box; }
-    
     .top-nav {
       display: flex; justify-content: space-between; align-items: center;
       background: var(--card); padding: 12px 20px; border-radius: 12px; margin-bottom: 15px;
     }
 
     .main-layout { display: grid; grid-template-columns: 280px 1fr; gap: 15px; flex-grow: 1; min-height: 0; }
-    
     .monitor-item {
       background: var(--card); padding: 20px; border-radius: 15px;
       border-left: 6px solid var(--primary); margin-bottom: 15px;
     }
     .val-display { font-size: 42px; font-weight: 900; }
 
-    .chart-box { 
-      background: #0f172a; border-radius: 15px; padding: 20px; 
-      border: 1px solid rgba(255,255,255,0.05); position: relative;
+    /* KHU VỰC BIỂU ĐỒ CÓ THANH TRƯỢT X-Y */
+    .chart-viewport { 
+      background: #0f172a; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05); 
+      overflow: auto; position: relative; 
+    }
+    .chart-wrapper { 
+      width: 3000px; /* Độ rộng để cuộn X */
+      height: 1000px; /* Độ cao để cuộn Y */
+      min-height: 100%; 
     }
 
-    .btn {
-      width: 100%; padding: 12px; border: none; border-radius: 8px;
-      font-weight: bold; cursor: pointer; margin-top: 10px;
-    }
+    /* Tùy chỉnh Scrollbar */
+    .chart-viewport::-webkit-scrollbar { width: 10px; height: 10px; }
+    .chart-viewport::-webkit-scrollbar-thumb { background: #334155; border-radius: 5px; }
+    .chart-viewport::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+
+    .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
     .btn-primary { background: var(--primary); color: #000; }
     .btn-secondary { background: #334155; color: #fff; }
 
@@ -66,8 +67,6 @@
   </style>
 </head>
 <body>
-
-<div id="status-bar"></div>
 
 <div id="view-home" class="home-container">
   <h1 style="color: var(--primary);">HỆ THỐNG SCADA TRỰC TUYẾN</h1>
@@ -96,13 +95,13 @@
         <small style="color:#94a3b8; font-weight: bold;">HUMIDITY</small>
         <div class="val-display"><span id="val-hum">--</span>%</div>
       </div>
-      
-      <button class="btn btn-primary" onclick="setLive()">CHẾ ĐỘ XEM TRỰC TIẾP</button>
-      <button class="btn btn-secondary" onclick="hmiChart.resetZoom()">RESET ZOOM</button>
+      <button class="btn btn-primary" onclick="scrollToEnd()">BÁM SÁT HIỆN TẠI</button>
     </div>
 
-    <div class="chart-box">
-      <canvas id="hmiChart"></canvas>
+    <div class="chart-viewport" id="viewport">
+      <div class="chart-wrapper">
+        <canvas id="hmiChart"></canvas>
+      </div>
     </div>
   </div>
 </div>
@@ -123,11 +122,10 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  let isLive = true;
-
   function switchPage(id) {
     document.getElementById('view-home').style.display = (id === 'view-home' ? 'block' : 'none');
     document.getElementById('view-detail').style.display = (id === 'view-detail' ? 'flex' : 'none');
+    if(id === 'view-detail') setTimeout(scrollToEnd, 100);
   }
 
   const ctx = document.getElementById('hmiChart').getContext('2d');
@@ -137,39 +135,31 @@
       datasets: [
         { 
           label: 'Nhiệt độ (°C)', data: [], borderColor: '#38bdf8', 
-          backgroundColor: 'rgba(56, 189, 248, 0.2)', // Màu đậm rõ nét
-          borderWidth: 3, pointRadius: 4, tension: 0.4, fill: true 
+          backgroundColor: 'rgba(56, 189, 248, 0.3)', // Màu đậm
+          borderWidth: 3, pointRadius: 4, fill: true, tension: 0.4 
         },
         { 
           label: 'Độ ẩm (%)', data: [], borderColor: '#10b981', 
-          backgroundColor: 'rgba(16, 185, 129, 0.1)', // Màu đậm rõ nét
-          borderWidth: 3, pointRadius: 4, tension: 0.4, fill: true 
+          backgroundColor: 'rgba(16, 185, 129, 0.2)', // Màu đậm
+          borderWidth: 3, pointRadius: 4, fill: true, tension: 0.4 
         }
       ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
       scales: {
-        x: { 
-          type: 'time', 
-          time: { unit: 'second', displayFormats: { second: 'HH:mm:ss' } },
-          grid: { color: 'rgba(255,255,255,0.05)' }
-        },
-        y: { grid: { color: 'rgba(255,255,255,0.05)' }, beginAtZero: false }
-      },
-      plugins: {
-        zoom: {
-          pan: { enabled: true, mode: 'x', onPanStart: () => isLive = false },
-          zoom: { wheel: { enabled: true }, mode: 'x', onZoomStart: () => isLive = false }
-        },
-        tooltip: { mode: 'index', intersect: false }
+        x: { type: 'time', time: { unit: 'second', displayFormats: { second: 'HH:mm:ss' } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.05)' } }
       }
     }
   });
 
-  function setLive() { isLive = true; hmiChart.update(); }
+  function scrollToEnd() {
+    const v = document.getElementById('viewport');
+    v.scrollLeft = v.scrollWidth;
+  }
 
-  // GIỮ NGUYÊN LOAD HISTORY 24H
+  // Load lịch sử 24h
   db.ref("history").orderByChild("timestamp").limitToLast(500).once("value", (snap) => {
     const data = snap.val();
     if (data) {
@@ -179,10 +169,11 @@
         hmiChart.data.datasets[1].data.push({ x: item.timestamp, y: item.hum });
       });
       hmiChart.update();
+      scrollToEnd();
     }
   });
 
-  // REAL-TIME VỚI KHOẢNG TRỐNG TƯƠNG LAI
+  // Real-time
   db.ref("data").on("value", (snap) => {
     const val = snap.val();
     if (val) {
@@ -196,20 +187,19 @@
       if(t > 45) document.getElementById("card-temp").classList.add("alarm-red");
       else document.getElementById("card-temp").classList.remove("alarm-red");
 
-      db.ref("history").push({ timestamp: now, temp: t, hum: h });
-
       hmiChart.data.datasets[0].data.push({ x: now, y: t });
       hmiChart.data.datasets[1].data.push({ x: now, y: h });
 
-      if (isLive) {
-        // GIỮ ĐÚNG YÊU CẦU: HIỂN THỊ KHOẢNG TRỐNG TƯƠNG LAI
-        const futureGap = 2 * 60 * 1000; // Trống 2 phút bên phải
-        const viewSize = 10 * 60 * 1000; // Xem tổng 10 phút
+      // KHOẢNG TRỐNG TƯƠNG LAI
+      const futureGap = 2 * 60 * 1000; 
+      const windowSize = 10 * 60 * 1000;
+      hmiChart.options.scales.x.max = now + futureGap;
+      hmiChart.options.scales.x.min = now + futureGap - windowSize;
 
-        hmiChart.options.scales.x.max = now + futureGap;
-        hmiChart.options.scales.x.min = now + futureGap - viewSize;
-      }
       hmiChart.update('none');
+      
+      const v = document.getElementById('viewport');
+      if (v.scrollLeft + v.clientWidth >= v.scrollWidth - 100) scrollToEnd();
     }
   });
 
