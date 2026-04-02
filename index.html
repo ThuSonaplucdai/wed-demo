@@ -2,83 +2,42 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SCADA PRO - SCROLLBAR & FUTURE TIME</title>
-  
+  <title>SCADA PRO - FUTURE TIME MODE</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-
   <style>
-    :root {
-      --bg: #020617; --card: #1e293b; --primary: #38bdf8;
-      --success: #10b981; --danger: #ef4444; --text: #f8fafc;
-    }
-    body { 
-      margin: 0; font-family: 'Segoe UI', sans-serif; 
-      background: var(--bg); color: var(--text); overflow: hidden;
-      display: flex; flex-direction: column; height: 100vh;
-    }
-
-    #status-bar {
-      position: fixed; top: 0; width: 100%; height: 35px; line-height: 35px;
-      z-index: 9999; font-weight: bold; text-align: center; display: none;
-    }
-
-    .top-nav {
-      display: flex; justify-content: space-between; align-items: center;
-      background: var(--card); padding: 12px 20px; border-radius: 12px; margin: 10px;
-    }
-
-    .main-layout { display: grid; grid-template-columns: 280px 1fr; gap: 15px; flex-grow: 1; padding: 10px; min-height: 0; }
+    :root { --bg: #020617; --card: #1e293b; --primary: #38bdf8; --success: #10b981; --text: #f8fafc; }
+    body { margin: 0; font-family: sans-serif; background: var(--bg); color: var(--text); overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+    .main-layout { display: grid; grid-template-columns: 250px 1fr; gap: 10px; padding: 10px; flex-grow: 1; min-height: 0; }
+    .monitor-item { background: var(--card); padding: 15px; border-radius: 10px; border-left: 5px solid var(--primary); margin-bottom: 10px; }
+    .val-display { font-size: 35px; font-weight: bold; }
     
-    .sidebar { display: flex; flex-direction: column; gap: 15px; }
-    .monitor-item { background: var(--card); padding: 20px; border-radius: 15px; border-left: 6px solid var(--primary); }
-    .val-display { font-size: 42px; font-weight: 900; }
-
     /* KHU VỰC BIỂU ĐỒ CÓ THANH TRƯỢT */
-    .chart-viewport {
-      background: #0f172a; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05);
-      position: relative; overflow: auto; /* Tạo thanh trượt X và Y */
+    .chart-viewport { 
+      background: #0b1120; border-radius: 10px; border: 1px solid #1e293b; 
+      overflow: auto; position: relative; 
     }
-    .chart-wrapper {
-      width: 2000px; /* Độ rộng giả lập để có thể trượt ngang xem lịch sử dài */
-      height: 1000px; /* Độ cao giả lập để có thể trượt dọc xem dải nhiệt độ */
-      min-height: 100%;
-    }
-
-    /* Tùy chỉnh thanh trượt cho đẹp */
-    .chart-viewport::-webkit-scrollbar { width: 10px; height: 10px; }
-    .chart-viewport::-webkit-scrollbar-track { background: #020617; }
-    .chart-viewport::-webkit-scrollbar-thumb { background: #334155; border-radius: 5px; }
+    .chart-wrapper { width: 3000px; height: 100%; min-height: 500px; }
+    
+    /* Thanh cuộn chuyên nghiệp */
+    .chart-viewport::-webkit-scrollbar { width: 8px; height: 8px; }
+    .chart-viewport::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
     .chart-viewport::-webkit-scrollbar-thumb:hover { background: var(--primary); }
-
-    .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-    .btn-primary { background: var(--primary); color: #000; }
   </style>
 </head>
 <body>
 
-<div id="status-bar"></div>
-
-<div class="top-nav">
-  <div style="font-weight: bold; color: var(--primary);">SCADA MONITORING SYSTEM</div>
-  <div id="live-clock" style="font-family: monospace; font-size: 1.3rem;">--:--:--</div>
-</div>
-
 <div class="main-layout">
   <div class="sidebar">
-    <div class="monitor-item" id="card-temp">
-      <small style="color:#94a3b8;">NHIỆT ĐỘ</small>
+    <div class="monitor-item">
+      <small>NHIỆT ĐỘ</small>
       <div class="val-display"><span id="val-temp">--</span>°C</div>
     </div>
     <div class="monitor-item" style="border-left-color: var(--success);">
-      <small style="color:#94a3b8;">ĐỘ ẨM</small>
+      <small>ĐỘ ẨM</small>
       <div class="val-display"><span id="val-hum">--</span>%</div>
     </div>
-    <button class="btn btn-primary" onclick="scrollToEnd()">BÁM SÁT THỜI GIAN THỰC</button>
-    <div style="font-size: 11px; color: #64748b; padding: 10px;">
-      * Sử dụng thanh trượt bên phải và bên dưới để xem các vùng dữ liệu khác nhau.
-    </div>
+    <button onclick="scrollToEnd()" style="width:100%; padding:10px; cursor:pointer; background:var(--primary); border:none; border-radius:5px; font-weight:bold;">BÁM SÁT HIỆN TẠI</button>
   </div>
 
   <div class="chart-viewport" id="viewport">
@@ -92,6 +51,7 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
 <script>
+  // Cấu hình Firebase của Khang
   const firebaseConfig = {
     apiKey: "AIzaSyBWRpQCnDWV5YQpoXZ_o7aqfGdv_7yUT38",
     authDomain: "wed-demo-d236a.firebaseapp.com",
@@ -109,54 +69,55 @@
     type: 'line',
     data: {
       datasets: [
-        { label: 'Nhiệt độ (°C)', data: [], borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', fill: true, tension: 0.4, pointRadius: 4, hitRadius: 15 },
-        { label: 'Độ ẩm (%)', data: [], borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.05)', fill: true, tension: 0.4, pointRadius: 4, hitRadius: 15 }
+        { 
+          label: 'Nhiệt độ (°C)', 
+          data: [], 
+          borderColor: '#38bdf8', 
+          backgroundColor: 'rgba(56, 189, 248, 0.2)', // Giữ màu rõ nét
+          fill: true, 
+          tension: 0.3,
+          pointRadius: 4,
+          borderWidth: 3
+        },
+        { 
+          label: 'Độ ẩm (%)', 
+          data: [], 
+          borderColor: '#10b981', 
+          backgroundColor: 'rgba(16, 185, 129, 0.1)', 
+          fill: true, 
+          tension: 0.3,
+          pointRadius: 4,
+          borderWidth: 3
+        }
       ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
+      animation: false,
       scales: {
         x: { 
           type: 'time', 
           time: { unit: 'second', displayFormats: { second: 'HH:mm:ss' } },
-          grid: { color: 'rgba(255,255,255,0.05)' },
-          // Luôn hiển thị khoảng thời gian rộng
+          grid: { color: '#1e293b' }
         },
         y: { 
-          min: 0, max: 100, // Cố định dải hiển thị để thanh trượt dọc có ý nghĩa
-          grid: { color: 'rgba(255,255,255,0.05)' } 
+          min: 0, max: 100, 
+          grid: { color: '#1e293b' } 
         }
       },
       plugins: {
-        legend: { display: true },
-        tooltip: { enabled: true }
+        tooltip: { enabled: true, mode: 'index', intersect: false }
       }
     }
   });
 
-  // Tự động cuộn thanh trượt tới cuối (thời gian thực)
   function scrollToEnd() {
-    const viewport = document.getElementById('viewport');
-    viewport.scrollLeft = viewport.scrollWidth;
+    const v = document.getElementById('viewport');
+    v.scrollLeft = v.scrollWidth;
   }
 
-  // Load lịch sử 24h
-  db.ref("history").orderByChild("timestamp").limitToLast(500).once("value", (snap) => {
-    const data = snap.val();
-    if (data) {
-      const sorted = Object.values(data).sort((a, b) => a.timestamp - b.timestamp);
-      sorted.forEach(item => {
-        hmiChart.data.datasets[0].data.push({ x: item.timestamp, y: item.temp });
-        hmiChart.data.datasets[1].data.push({ x: item.timestamp, y: item.hum });
-      });
-      hmiChart.update();
-      scrollToEnd();
-    }
-  });
-
-  // Lắng nghe Real-time
+  // Lắng nghe dữ liệu
   db.ref("data").on("value", (snap) => {
     const val = snap.val();
     if (val) {
@@ -167,31 +128,26 @@
       document.getElementById("val-temp").innerText = t;
       document.getElementById("val-hum").innerText = h;
 
-      // Lưu history
-      db.ref("history").push({ timestamp: now, temp: t, hum: h });
-
-      // Cập nhật biểu đồ
       hmiChart.data.datasets[0].data.push({ x: now, y: t });
       hmiChart.data.datasets[1].data.push({ x: now, y: h });
 
-      // THIẾT LẬP THỜI GIAN THỰC & KHOẢNG TƯƠNG LAI
-      const futureGap = 60 * 1000; // Hiển thị thêm 1 phút tương lai (trống bên phải)
-      const windowSize = 10 * 60 * 1000; // Độ rộng hiển thị 10 phút
+      // CƠ CHẾ TIẾN ĐẾN TƯƠNG LAI
+      // Hiển thị khung nhìn rộng 10 phút, nhưng Max là "Bây giờ + 2 phút"
+      const futureGap = 2 * 60 * 1000; // Khoảng trống tương lai 2 phút
+      const viewWindow = 10 * 60 * 1000; // Tổng độ rộng khung hình 10 phút
 
       hmiChart.options.scales.x.max = now + futureGap;
-      hmiChart.options.scales.x.min = now - windowSize;
+      hmiChart.options.scales.x.min = now + futureGap - viewWindow;
 
       hmiChart.update('none');
       
-      // Nếu người dùng đang ở cuối thanh trượt thì tự động cuộn theo dữ liệu mới
+      // Tự động cuộn nếu đang xem Live
       const v = document.getElementById('viewport');
-      if (v.scrollLeft + v.clientWidth >= v.scrollWidth - 50) {
+      if (v.scrollLeft + v.clientWidth >= v.scrollWidth - 100) {
         scrollToEnd();
       }
     }
   });
-
-  setInterval(() => { document.getElementById("live-clock").innerText = new Date().toLocaleTimeString(); }, 1000);
 </script>
 </body>
 </html>
