@@ -55,7 +55,6 @@
       overflow: auto; position: relative; flex-grow: 1;
     }
     
-    /* TĂNG ĐỘ RỘNG ĐỂ CHỨA DỮ LIỆU 24H KHÔNG BỊ DÍNH NHAU */
     .chart-wrapper { 
       width: 10000px; 
       height: 1000px; 
@@ -91,11 +90,6 @@
       <h2 style="margin: 0;">Trạm Giám Sát 01</h2>
       <p style="font-size: 13px; color: #94a3b8; margin: 15px 0;">Hỗ trợ lưu trữ 24h & Scrollbar X-Y</p>
       <button class="btn btn-primary">TRUY CẬP NGAY</button>
-    </div>
-    <div class="station-card locked">
-      <div style="font-size: 60px; margin-bottom: 15px;">🔒</div>
-      <h2 style="margin: 0;">Trạm Giám Sát 02</h2>
-      <button class="btn btn-secondary" disabled>ĐANG BẢO TRÌ</button>
     </div>
   </div>
 </div>
@@ -134,116 +128,118 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
 <script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyBWRpQCnDWV5YQpoXZ_o7aqfGdv_7yUT38",
-    authDomain: "wed-demo-d236a.firebaseapp.com",
-    databaseURL: "https://wed-demo-d236a-default-rtdb.firebaseio.com",
-    projectId: "wed-demo-d236a",
-    storageBucket: "wed-demo-d236a.firebasestorage.app",
-    messagingSenderId: "410178635616",
-    appId: "1:410178635616:web:c4d513a888176847198005"
-  };
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
+const firebaseConfig = {
+  apiKey: "AIzaSyBWRpQCnDWV5YQpoXZ_o7aqfGdv_7yUT38",
+  authDomain: "wed-demo-d236a.firebaseapp.com",
+  databaseURL: "https://wed-demo-d236a-default-rtdb.firebaseio.com",
+  projectId: "wed-demo-d236a",
+  storageBucket: "wed-demo-d236a.firebasestorage.app",
+  messagingSenderId: "410178635616",
+  appId: "1:410178635616:web:c4d513a888176847198005"
+};
 
-  function switchPage(id) {
-    document.getElementById('view-home').style.display = (id === 'view-home' ? 'block' : 'none');
-    document.getElementById('view-detail').style.display = (id === 'view-detail' ? 'flex' : 'none');
-    if(id === 'view-detail') setTimeout(scrollToEnd, 300);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const bar = document.getElementById("status-bar");
+
+// LIMIT DATA
+const MAX_POINTS = 1440;
+function limitData(arr) {
+  if (arr.length > MAX_POINTS) arr.shift();
+}
+
+function switchPage(id) {
+  document.getElementById('view-home').style.display = (id === 'view-home' ? 'block' : 'none');
+  document.getElementById('view-detail').style.display = (id === 'view-detail' ? 'flex' : 'none');
+  if(id === 'view-detail') setTimeout(scrollToEnd, 300);
+}
+
+const ctx = document.getElementById('hmiChart').getContext('2d');
+const hmiChart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    datasets: [
+      { label: 'Nhiệt độ (°C)', data: [], borderWidth: 3, pointRadius: 2, tension: 0.3, fill: false },
+      { label: 'Độ ẩm (%)', data: [], borderWidth: 3, pointRadius: 2, tension: 0.3, fill: false }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      x: { type: 'time' },
+      y: { min: 0, max: 100 }
+    }
   }
+});
 
-  const ctx = document.getElementById('hmiChart').getContext('2d');
-  const hmiChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      datasets: [
-        { 
-          label: 'Nhiệt độ (°C)', data: [], 
-          borderColor: '#38bdf8', 
-          backgroundColor: 'transparent', // BỎ ĐỘ ÁNH XẠ THEO YÊU CẦU
-          borderWidth: 3, pointRadius: 2, tension: 0.3, fill: false 
-        },
-        { 
-          label: 'Độ ẩm (%)', data: [], 
-          borderColor: '#10b981', 
-          backgroundColor: 'transparent', // BỎ ĐỘ ÁNH XẠ THEO YÊU CẦU
-          borderWidth: 3, pointRadius: 2, tension: 0.3, fill: false 
-        }
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      scales: {
-        x: { 
-          type: 'time', 
-          time: { unit: 'minute', displayFormats: { minute: 'HH:mm' } },
-          grid: { color: 'rgba(255,255,255,0.05)' }
-          // Bỏ thuộc tính min để biểu đồ tự giãn theo dữ liệu 24h
-        },
-        y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.05)' } }
-      },
-      plugins: {
-        tooltip: { mode: 'index', intersect: false }
-      }
-    }
-  });
+function scrollToEnd() {
+  const v = document.getElementById('viewport');
+  v.scrollLeft = v.scrollWidth;
+}
 
-  function scrollToEnd() {
-    const v = document.getElementById('viewport');
-    v.scrollLeft = v.scrollWidth;
+// LOAD HISTORY
+db.ref("history").limitToLast(1440).once("value", (snap) => {
+  const data = snap.val() || {};
+  if (Object.keys(data).length) {
+    const sorted = Object.values(data).sort((a, b) => a.timestamp - b.timestamp);
+    sorted.forEach(item => {
+      hmiChart.data.datasets[0].data.push({ x: item.timestamp, y: item.temp });
+      hmiChart.data.datasets[1].data.push({ x: item.timestamp, y: item.hum });
+    });
+    hmiChart.update();
+    scrollToEnd();
   }
+});
 
-  db.ref("history").orderByChild("timestamp").limitToLast(1440).once("value", (snap) => {
-    const data = snap.val();
-    if (data) {
-      const sorted = Object.values(data).sort((a, b) => a.timestamp - b.timestamp);
-      sorted.forEach(item => {
-        hmiChart.data.datasets[0].data.push({ x: item.timestamp, y: item.temp });
-        hmiChart.data.datasets[1].data.push({ x: item.timestamp, y: item.hum });
-      });
-      hmiChart.update();
-      scrollToEnd();
-      document.getElementById("sync-status").innerText = "Đã tải dữ liệu 24h.";
-    }
-  });
+// REALTIME
+db.ref("data").on("value", (snap) => {
+  const val = snap.val();
+  if (!val) return;
 
-  db.ref("data").on("value", (snap) => {
-    const val = snap.val();
-    if (val) {
-      const now = new Date().getTime();
-      const t = parseFloat(val.temp);
-      const h = parseFloat(val.hum);
+  const now = new Date().getTime();
+  const t = parseFloat(val.temp) || 0;
+  const h = parseFloat(val.hum) || 0;
 
-      document.getElementById("val-temp").innerText = t;
-      document.getElementById("val-hum").innerText = h;
+  document.getElementById("val-temp").innerText = t;
+  document.getElementById("val-hum").innerText = h;
 
-      if(t > 45) document.getElementById("card-temp").classList.add("alarm-red");
-      else document.getElementById("card-temp").classList.remove("alarm-red");
+  const card = document.getElementById("card-temp");
+  if(t > 45) card.classList.add("alarm-red");
+  else card.classList.remove("alarm-red");
 
-      hmiChart.data.datasets[0].data.push({ x: now, y: t });
-      hmiChart.data.datasets[1].data.push({ x: now, y: h });
+  hmiChart.data.datasets[0].data.push({ x: now, y: t });
+  hmiChart.data.datasets[1].data.push({ x: now, y: h });
 
-      // CẬP NHẬT KHOẢNG TRỐNG TƯƠNG LAI MÀ KHÔNG GIỚI HẠN QUÁ KHỨ
-      const futureGap = 5 * 60 * 1000; // Để trống 5 phút tương lai
-      hmiChart.options.scales.x.max = now + futureGap;
+  limitData(hmiChart.data.datasets[0].data);
+  limitData(hmiChart.data.datasets[1].data);
 
-      hmiChart.update('none');
-      
-      const v = document.getElementById('viewport');
-      if (v.scrollLeft + v.clientWidth >= v.scrollWidth - 150) scrollToEnd();
-    }
-  });
+  hmiChart.update('none');
+
+  const v = document.getElementById('viewport');
+  const isNearEnd = v.scrollWidth - (v.scrollLeft + v.clientWidth) < 200;
+  if (isNearEnd) scrollToEnd();
+});
+
+// STATUS
 db.ref(".info/connected").on("value", (snap) => {
-    if (snap.val() === true) {
-      bar.style.display = "block"; bar.style.background = "#10b981";
-      bar.innerHTML = `<marquee scrollamount="25">✅ HỆ THỐNG TRỰC TUYẾN</marquee>`;
-      setTimeout(() => bar.style.display = "none", 5000);
-    } else {
-      bar.style.display = "block"; bar.style.background = "#ef4444";
-      bar.innerHTML = `<marquee scrollamount="25">⚠️ CẢNH BÁO: MẤT KẾT NỐI SERVER!</marquee>`;
-    }
-  });
-  setInterval(() => { document.getElementById("live-clock").innerText = new Date().toLocaleTimeString(); }, 1000);
+  if (snap.val() === true) {
+    bar.style.display = "block";
+    bar.style.background = "#10b981";
+    bar.innerHTML = "✅ HỆ THỐNG TRỰC TUYẾN";
+    setTimeout(() => bar.style.display = "none", 3000);
+  } else {
+    bar.style.display = "block";
+    bar.style.background = "#ef4444";
+    bar.innerHTML = "⚠️ MẤT KẾT NỐI SERVER";
+  }
+});
+
+// CLOCK
+setInterval(() => {
+  document.getElementById("live-clock").innerText = new Date().toLocaleTimeString();
+}, 1000);
 </script>
+
 </body>
 </html>
