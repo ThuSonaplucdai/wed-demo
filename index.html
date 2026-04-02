@@ -294,7 +294,7 @@
   db.ref(".info/connected").on("value", (snap) => {
     if (snap.val() === true) {
       statusBar.className = "bg-success"; statusBar.style.display = "block";
-      statusBar.innerHTML = `<marquee scrollamount="20" loop="1">✅ KẾT NỐI SERVER THÀNH CÔNG - HỆ THỐNG TRỰC TUYẾN</marquee>`;
+      statusBar.innerHTML = `<marquee scrollamount="30" loop="1">✅ KẾT NỐI SERVER THÀNH CÔNG - HỆ THỐNG TRỰC TUYẾN</marquee>`;
       setTimeout(() => { if(snap.val() === true) statusBar.style.display = "none"; }, 20000);
     } else {
       statusBar.className = "bg-error"; statusBar.style.display = "block";
