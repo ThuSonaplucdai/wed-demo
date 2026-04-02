@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SCADA PRO - FIXED AXIS EDITION</title>
+  <title>SCADA ULTIMATE EDITION - 24H PERSISTENT</title>
   
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
@@ -15,72 +15,87 @@
     }
     body { 
       margin: 0; font-family: 'Segoe UI', sans-serif; 
-      background: var(--bg); color: var(--text); overflow: hidden;
+      background: var(--bg); color: var(--text); overflow-x: hidden;
       display: flex; flex-direction: column; height: 100vh;
     }
 
-    /* --- GIAO DIỆN CHUNG --- */
+    #status-bar {
+      position: fixed; top: 0; width: 100%; height: 35px; line-height: 35px;
+      z-index: 9999; font-weight: bold; text-align: center; display: none;
+    }
+
     .home-container { max-width: 1100px; margin: auto; padding: 60px 20px; text-align: center; }
     .station-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-top: 40px; }
+    
     .station-card {
       background: var(--card); border-radius: 20px; padding: 30px;
       border: 1px solid rgba(255,255,255,0.05); transition: 0.4s; cursor: pointer;
     }
-    .station-card:hover { transform: translateY(-10px); border-color: var(--primary); }
+    .station-card:hover { transform: translateY(-10px); border-color: var(--primary); box-shadow: 0 15px 30px rgba(56,189,248,0.1); }
+    .locked { opacity: 0.4; filter: grayscale(1); cursor: not-allowed; }
 
-    .detail-view { display: none; flex-direction: column; height: 100vh; padding: 15px; box-sizing: border-box; }
+    .detail-view { display: none; flex-direction: column; height: 100vh; padding: 15px; box-sizing: border-box; animation: fadeIn 0.5s; }
+    
     .top-nav {
       display: flex; justify-content: space-between; align-items: center;
       background: var(--card); padding: 12px 20px; border-radius: 12px; margin-bottom: 15px;
     }
 
     .main-layout { display: grid; grid-template-columns: 280px 1fr; gap: 15px; flex-grow: 1; min-height: 0; }
+    
     .monitor-item {
       background: var(--card); padding: 20px; border-radius: 15px;
       border-left: 6px solid var(--primary); margin-bottom: 15px;
     }
-    .val-display { font-size: 42px; font-weight: 900; }
+    .val-display { font-size: 42px; font-weight: 900; margin-top: 5px; }
+    .unit { font-size: 16px; color: #64748b; margin-left: 5px; }
 
-    /* --- KHU VỰC BIỂU ĐỒ CỐ ĐỊNH TRỤC --- */
-    .chart-container-root {
-      background: #0f172a; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05);
-      position: relative; flex-grow: 1; display: flex; flex-direction: column; overflow: hidden;
-    }
-
-    /* Tạo lớp phủ cố định trục Y */
     .chart-viewport { 
-      overflow-x: auto; overflow-y: hidden; position: relative; flex-grow: 1;
+      background: #0f172a; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05); 
+      overflow: auto; position: relative; flex-grow: 1;
     }
     
+    /* TĂNG ĐỘ RỘNG ĐỂ CHỨA DỮ LIỆU 24H KHÔNG BỊ DÍNH NHAU */
     .chart-wrapper { 
-      width: 8000px; /* Độ rộng để trải dài 24h */
-      height: 100%; 
-      position: relative;
+      width: 10000px; 
+      height: 1000px; 
+      min-height: 100%; 
     }
 
-    /* Thanh cuộn đẹp */
-    .chart-viewport::-webkit-scrollbar { height: 12px; }
-    .chart-viewport::-webkit-scrollbar-track { background: #020617; border-radius: 10px; }
-    .chart-viewport::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; border: 2px solid #020617; }
+    .chart-viewport::-webkit-scrollbar { width: 10px; height: 12px; }
+    .chart-viewport::-webkit-scrollbar-track { background: #020617; }
+    .chart-viewport::-webkit-scrollbar-thumb { background: #334155; border-radius: 5px; border: 2px solid #020617; }
     .chart-viewport::-webkit-scrollbar-thumb:hover { background: var(--primary); }
 
-    .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+    .btn {
+      width: 100%; padding: 12px; border: none; border-radius: 8px;
+      font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 10px;
+    }
     .btn-primary { background: var(--primary); color: #000; }
     .btn-secondary { background: #334155; color: #fff; }
 
     .alarm-red { animation: blink-red 1s infinite; border-left-color: var(--danger) !important; }
     @keyframes blink-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 100% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   </style>
 </head>
 <body>
 
+<div id="status-bar"></div>
+
 <div id="view-home" class="home-container">
-  <h1 style="color: var(--primary);">HỆ THỐNG SCADA TRỰC TUYẾN</h1>
+  <h1 style="font-size: 2.5rem; color: var(--primary); text-shadow: 0 0 15px rgba(56,189,248,0.3);">HỆ THỐNG SCADA TRỰC TUYẾN</h1>
   <div class="station-grid">
     <div class="station-card" onclick="switchPage('view-detail')">
-      <div style="font-size: 60px;">📊</div>
-      <h2>Trạm Giám Sát 01</h2>
-      <button class="btn btn-primary">TRUY CẬP</button>
+      <div style="font-size: 60px; margin-bottom: 15px;">📊</div>
+      <h2 style="margin: 0;">Trạm Giám Sát 01</h2>
+      <p style="font-size: 13px; color: #94a3b8; margin: 15px 0;">Hỗ trợ lưu trữ 24h & Scrollbar X-Y</p>
+      <button class="btn btn-primary">TRUY CẬP NGAY</button>
+    </div>
+    <div class="station-card locked">
+      <div style="font-size: 60px; margin-bottom: 15px;">🔒</div>
+      <h2 style="margin: 0;">Trạm Giám Sát 02</h2>
+      <button class="btn btn-secondary" disabled>ĐANG BẢO TRÌ</button>
     </div>
   </div>
 </div>
@@ -88,27 +103,28 @@
 <div id="view-detail" class="detail-view">
   <div class="top-nav">
     <button class="btn btn-secondary" style="width: auto;" onclick="switchPage('view-home')">⬅ QUAY LẠI</button>
-    <div id="live-clock" style="font-family: monospace; font-size: 1.3rem; color: var(--primary);">--:--:--</div>
+    <div style="text-align: right;">
+      <div id="live-clock" style="font-family: monospace; font-size: 1.3rem; color: var(--primary);">--:--:--</div>
+      <small id="sync-status" style="color: #64748b;">Đang đồng bộ dữ liệu Cloud...</small>
+    </div>
   </div>
 
   <div class="main-layout">
     <div class="sidebar">
       <div class="monitor-item" id="card-temp">
-        <small>TEMPERATURE</small>
-        <div class="val-display"><span id="val-temp">--</span>°C</div>
+        <small style="color:#94a3b8; font-weight: bold;">TEMPERATURE</small>
+        <div class="val-display"><span id="val-temp">--</span><span class="unit">°C</span></div>
       </div>
       <div class="monitor-item" style="border-left-color: var(--success);">
-        <small>HUMIDITY</small>
-        <div class="val-display"><span id="val-hum">--</span>%</div>
+        <small style="color:#94a3b8; font-weight: bold;">HUMIDITY</small>
+        <div class="val-display"><span id="val-hum">--</span><span class="unit">%</span></div>
       </div>
       <button class="btn btn-primary" onclick="scrollToEnd()">BÁM SÁT HIỆN TẠI</button>
     </div>
 
-    <div class="chart-container-root">
-      <div class="chart-viewport" id="viewport">
-        <div class="chart-wrapper">
-          <canvas id="hmiChart"></canvas>
-        </div>
+    <div class="chart-viewport" id="viewport">
+      <div class="chart-wrapper">
+        <canvas id="hmiChart"></canvas>
       </div>
     </div>
   </div>
@@ -141,28 +157,33 @@
     type: 'line',
     data: {
       datasets: [
-        { label: 'Nhiệt độ (°C)', data: [], borderColor: '#38bdf8', borderWidth: 2, pointRadius: 0, fill: false, tension: 0.2 },
-        { label: 'Độ ẩm (%)', data: [], borderColor: '#10b981', borderWidth: 2, pointRadius: 0, fill: false, tension: 0.2 }
+        { 
+          label: 'Nhiệt độ (°C)', data: [], 
+          borderColor: '#38bdf8', 
+          backgroundColor: 'transparent', // BỎ ĐỘ ÁNH XẠ THEO YÊU CẦU
+          borderWidth: 3, pointRadius: 2, tension: 0.3, fill: false 
+        },
+        { 
+          label: 'Độ ẩm (%)', data: [], 
+          borderColor: '#10b981', 
+          backgroundColor: 'transparent', // BỎ ĐỘ ÁNH XẠ THEO YÊU CẦU
+          borderWidth: 3, pointRadius: 2, tension: 0.3, fill: false 
+        }
       ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      layout: { padding: { left: 10, right: 10 } },
       scales: {
         x: { 
           type: 'time', 
           time: { unit: 'minute', displayFormats: { minute: 'HH:mm' } },
-          grid: { color: 'rgba(255,255,255,0.05)' },
-          ticks: { color: '#94a3b8', maxRotation: 0 }
+          grid: { color: 'rgba(255,255,255,0.05)' }
+          // Bỏ thuộc tính min để biểu đồ tự giãn theo dữ liệu 24h
         },
-        y: { 
-          min: 0, max: 100, 
-          grid: { color: 'rgba(255,255,255,0.1)' },
-          ticks: { color: '#f8fafc', font: { weight: 'bold' } }
-        }
+        y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.05)' } }
       },
       plugins: {
-        legend: { display: true, labels: { color: '#fff' } }
+        tooltip: { mode: 'index', intersect: false }
       }
     }
   });
@@ -172,7 +193,6 @@
     v.scrollLeft = v.scrollWidth;
   }
 
-  // Load History 24h
   db.ref("history").orderByChild("timestamp").limitToLast(1440).once("value", (snap) => {
     const data = snap.val();
     if (data) {
@@ -183,10 +203,10 @@
       });
       hmiChart.update();
       scrollToEnd();
+      document.getElementById("sync-status").innerText = "Đã tải dữ liệu 24h.";
     }
   });
 
-  // Real-time Update
   db.ref("data").on("value", (snap) => {
     const val = snap.val();
     if (val) {
@@ -203,12 +223,14 @@
       hmiChart.data.datasets[0].data.push({ x: now, y: t });
       hmiChart.data.datasets[1].data.push({ x: now, y: h });
 
-      // Cập nhật trục X để luôn có khoảng trống 5 phút tương lai
-      hmiChart.options.scales.x.max = now + (5 * 60 * 1000);
+      // CẬP NHẬT KHOẢNG TRỐNG TƯƠNG LAI MÀ KHÔNG GIỚI HẠN QUÁ KHỨ
+      const futureGap = 5 * 60 * 1000; // Để trống 5 phút tương lai
+      hmiChart.options.scales.x.max = now + futureGap;
+
       hmiChart.update('none');
       
       const v = document.getElementById('viewport');
-      if (v.scrollLeft + v.clientWidth >= v.scrollWidth - 100) scrollToEnd();
+      if (v.scrollLeft + v.clientWidth >= v.scrollWidth - 150) scrollToEnd();
     }
   });
 
