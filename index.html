@@ -3,11 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SCADA ULTIMATE - FIXED AXIS EDITION</title>
+  <title>SCADA PRO - FIXED AXIS EDITION</title>
   
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
 
   <style>
     :root {
@@ -20,6 +19,7 @@
       display: flex; flex-direction: column; height: 100vh;
     }
 
+    /* --- GIAO DIỆN CHUNG --- */
     .home-container { max-width: 1100px; margin: auto; padding: 60px 20px; text-align: center; }
     .station-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-top: 40px; }
     .station-card {
@@ -41,15 +41,35 @@
     }
     .val-display { font-size: 42px; font-weight: 900; }
 
-    /* KHU VỰC BIỂU ĐỒ - KHÔNG DÙNG SCROLLBAR TRÌNH DUYỆT NỮA */
-    .chart-box { 
-      background: #0f172a; border-radius: 15px; padding: 20px; 
-      border: 1px solid rgba(255,255,255,0.05); position: relative;
+    /* --- KHU VỰC BIỂU ĐỒ CỐ ĐỊNH TRỤC --- */
+    .chart-container-root {
+      background: #0f172a; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05);
+      position: relative; flex-grow: 1; display: flex; flex-direction: column; overflow: hidden;
     }
+
+    /* Tạo lớp phủ cố định trục Y */
+    .chart-viewport { 
+      overflow-x: auto; overflow-y: hidden; position: relative; flex-grow: 1;
+    }
+    
+    .chart-wrapper { 
+      width: 8000px; /* Độ rộng để trải dài 24h */
+      height: 100%; 
+      position: relative;
+    }
+
+    /* Thanh cuộn đẹp */
+    .chart-viewport::-webkit-scrollbar { height: 12px; }
+    .chart-viewport::-webkit-scrollbar-track { background: #020617; border-radius: 10px; }
+    .chart-viewport::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; border: 2px solid #020617; }
+    .chart-viewport::-webkit-scrollbar-thumb:hover { background: var(--primary); }
 
     .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
     .btn-primary { background: var(--primary); color: #000; }
     .btn-secondary { background: #334155; color: #fff; }
+
+    .alarm-red { animation: blink-red 1s infinite; border-left-color: var(--danger) !important; }
+    @keyframes blink-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 100% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); } }
   </style>
 </head>
 <body>
@@ -60,7 +80,7 @@
     <div class="station-card" onclick="switchPage('view-detail')">
       <div style="font-size: 60px;">📊</div>
       <h2>Trạm Giám Sát 01</h2>
-      <button class="btn btn-primary">TRUY CẬP NGAY</button>
+      <button class="btn btn-primary">TRUY CẬP</button>
     </div>
   </div>
 </div>
@@ -81,18 +101,15 @@
         <small>HUMIDITY</small>
         <div class="val-display"><span id="val-hum">--</span>%</div>
       </div>
-      
-      <button class="btn btn-primary" onclick="setLive()">BÁM SÁT HIỆN TẠI</button>
-      <button class="btn btn-secondary" onclick="hmiChart.resetZoom()">XEM TOÀN BỘ 24H</button>
-      
-      <p style="font-size: 11px; color: #64748b; margin-top: 20px;">
-        * Kéo chuột trái trên biểu đồ để xem quá khứ.<br>
-        * Trục X/Y luôn cố định để bạn quan sát.
-      </p>
+      <button class="btn btn-primary" onclick="scrollToEnd()">BÁM SÁT HIỆN TẠI</button>
     </div>
 
-    <div class="chart-box">
-      <canvas id="hmiChart"></canvas>
+    <div class="chart-container-root">
+      <div class="chart-viewport" id="viewport">
+        <div class="chart-wrapper">
+          <canvas id="hmiChart"></canvas>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -113,11 +130,10 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  let isLive = true;
-
   function switchPage(id) {
     document.getElementById('view-home').style.display = (id === 'view-home' ? 'block' : 'none');
     document.getElementById('view-detail').style.display = (id === 'view-detail' ? 'flex' : 'none');
+    if(id === 'view-detail') setTimeout(scrollToEnd, 300);
   }
 
   const ctx = document.getElementById('hmiChart').getContext('2d');
@@ -125,48 +141,38 @@
     type: 'line',
     data: {
       datasets: [
-        { 
-          label: 'Nhiệt độ (°C)', data: [], 
-          borderColor: '#38bdf8', borderWidth: 3, pointRadius: 2, fill: false, tension: 0.3 
-        },
-        { 
-          label: 'Độ ẩm (%)', data: [], 
-          borderColor: '#10b981', borderWidth: 3, pointRadius: 2, fill: false, tension: 0.3 
-        }
+        { label: 'Nhiệt độ (°C)', data: [], borderColor: '#38bdf8', borderWidth: 2, pointRadius: 0, fill: false, tension: 0.2 },
+        { label: 'Độ ẩm (%)', data: [], borderColor: '#10b981', borderWidth: 2, pointRadius: 0, fill: false, tension: 0.2 }
       ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
+      layout: { padding: { left: 10, right: 10 } },
       scales: {
         x: { 
           type: 'time', 
           time: { unit: 'minute', displayFormats: { minute: 'HH:mm' } },
           grid: { color: 'rgba(255,255,255,0.05)' },
-          ticks: { color: '#94a3b8' }
+          ticks: { color: '#94a3b8', maxRotation: 0 }
         },
         y: { 
           min: 0, max: 100, 
-          grid: { color: 'rgba(255,255,255,0.05)' },
-          ticks: { color: '#94a3b8' }
+          grid: { color: 'rgba(255,255,255,0.1)' },
+          ticks: { color: '#f8fafc', font: { weight: 'bold' } }
         }
       },
       plugins: {
-        zoom: {
-          pan: { 
-            enabled: true, 
-            mode: 'x', 
-            onPanStart: () => isLive = false // Tắt bám đuổi khi người dùng kéo xem quá khứ
-          },
-          zoom: { wheel: { enabled: true }, mode: 'x' }
-        },
-        legend: { labels: { color: '#f8fafc' } }
+        legend: { display: true, labels: { color: '#fff' } }
       }
     }
   });
 
-  function setLive() { isLive = true; }
+  function scrollToEnd() {
+    const v = document.getElementById('viewport');
+    v.scrollLeft = v.scrollWidth;
+  }
 
-  // Load 24h
+  // Load History 24h
   db.ref("history").orderByChild("timestamp").limitToLast(1440).once("value", (snap) => {
     const data = snap.val();
     if (data) {
@@ -176,10 +182,11 @@
         hmiChart.data.datasets[1].data.push({ x: item.timestamp, y: item.hum });
       });
       hmiChart.update();
+      scrollToEnd();
     }
   });
 
-  // Real-time
+  // Real-time Update
   db.ref("data").on("value", (snap) => {
     const val = snap.val();
     if (val) {
@@ -190,16 +197,18 @@
       document.getElementById("val-temp").innerText = t;
       document.getElementById("val-hum").innerText = h;
 
+      if(t > 45) document.getElementById("card-temp").classList.add("alarm-red");
+      else document.getElementById("card-temp").classList.remove("alarm-red");
+
       hmiChart.data.datasets[0].data.push({ x: now, y: t });
       hmiChart.data.datasets[1].data.push({ x: now, y: h });
 
-      if (isLive) {
-        const futureGap = 5 * 60 * 1000; 
-        const windowSize = 20 * 60 * 1000; // Hiển thị khung hình 20 phút
-        hmiChart.options.scales.x.max = now + futureGap;
-        hmiChart.options.scales.x.min = now + futureGap - windowSize;
-      }
+      // Cập nhật trục X để luôn có khoảng trống 5 phút tương lai
+      hmiChart.options.scales.x.max = now + (5 * 60 * 1000);
       hmiChart.update('none');
+      
+      const v = document.getElementById('viewport');
+      if (v.scrollLeft + v.clientWidth >= v.scrollWidth - 100) scrollToEnd();
     }
   });
 
