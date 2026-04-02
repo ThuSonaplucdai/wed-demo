@@ -1,240 +1,188 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SCADA ULTIMATE EDITION - 24H PERSISTENT</title>
-  
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCADA ULTIMATE</title>
 
-  <style>
-    :root {
-      --bg: #020617; --card: #1e293b; --primary: #38bdf8;
-      --success: #10b981; --danger: #ef4444; --text: #f8fafc;
-    }
-    body { 
-      margin: 0; font-family: 'Segoe UI', sans-serif; 
-      background: var(--bg); color: var(--text); overflow-x: hidden;
-      display: flex; flex-direction: column; height: 100vh;
-    }
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 
-    #status-bar {
-      position: fixed; top: 0; width: 100%; height: 35px; line-height: 35px;
-      z-index: 9999; font-weight: bold; text-align: center; display: none;
-    }
+<style>
+:root {
+  --bg:#020617; --card:#1e293b; --primary:#38bdf8;
+  --success:#10b981; --danger:#ef4444; --text:#f8fafc;
+}
+body {
+  margin:0; font-family:Segoe UI;
+  background:var(--bg); color:var(--text);
+  display:flex; flex-direction:column; height:100vh;
+}
 
-    .home-container { max-width: 1100px; margin: auto; padding: 60px 20px; text-align: center; }
-    .station-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-top: 40px; }
-    
-    .station-card {
-      background: var(--card); border-radius: 20px; padding: 30px;
-      border: 1px solid rgba(255,255,255,0.05); transition: 0.4s; cursor: pointer;
-    }
-    .station-card:hover { transform: translateY(-10px); border-color: var(--primary); box-shadow: 0 15px 30px rgba(56,189,248,0.1); }
-    .locked { opacity: 0.4; filter: grayscale(1); cursor: not-allowed; }
+#status-bar{
+  position:fixed; top:0; width:100%;
+  height:35px; line-height:35px;
+  text-align:center; font-weight:bold;
+  display:none; z-index:9999;
+}
 
-    .detail-view { display: none; flex-direction: column; height: 100vh; padding: 15px; box-sizing: border-box; animation: fadeIn 0.5s; }
-    
-    .top-nav {
-      display: flex; justify-content: space-between; align-items: center;
-      background: var(--card); padding: 12px 20px; border-radius: 12px; margin-bottom: 15px;
-    }
+.home-container{padding:60px;text-align:center}
+.station-card{
+  background:var(--card); padding:30px;
+  border-radius:20px; cursor:pointer;
+}
 
-    .main-layout { display: grid; grid-template-columns: 280px 1fr; gap: 15px; flex-grow: 1; min-height: 0; }
-    
-    .monitor-item {
-      background: var(--card); padding: 20px; border-radius: 15px;
-      border-left: 6px solid var(--primary); margin-bottom: 15px;
-    }
-    .val-display { font-size: 42px; font-weight: 900; margin-top: 5px; }
-    .unit { font-size: 16px; color: #64748b; margin-left: 5px; }
+.detail-view{display:none;flex-direction:column;height:100vh;padding:15px}
 
-    .chart-viewport { 
-      background: #0f172a; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05); 
-      overflow: auto; position: relative; flex-grow: 1;
-    }
-    
-    /* TĂNG ĐỘ RỘNG ĐỂ CHỨA DỮ LIỆU 24H KHÔNG BỊ DÍNH NHAU */
-    .chart-wrapper { 
-      width: 10000px; 
-      height: 1000px; 
-      min-height: 100%; 
-    }
+.chart-viewport{
+  overflow:auto; background:#0f172a;
+  border-radius:15px; flex-grow:1;
+}
+.chart-wrapper{width:10000px;height:1000px}
 
-    .chart-viewport::-webkit-scrollbar { width: 10px; height: 12px; }
-    .chart-viewport::-webkit-scrollbar-track { background: #020617; }
-    .chart-viewport::-webkit-scrollbar-thumb { background: #334155; border-radius: 5px; border: 2px solid #020617; }
-    .chart-viewport::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+.btn{padding:12px;border:none;border-radius:8px;font-weight:bold}
+.btn-primary{background:var(--primary)}
 
-    .btn {
-      width: 100%; padding: 12px; border: none; border-radius: 8px;
-      font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 10px;
-    }
-    .btn-primary { background: var(--primary); color: #000; }
-    .btn-secondary { background: #334155; color: #fff; }
-
-    .alarm-red { animation: blink-red 1s infinite; border-left-color: var(--danger) !important; }
-    @keyframes blink-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 100% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); } }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-  </style>
+.alarm-red{border-left:6px solid red}
+</style>
 </head>
+
 <body>
 
 <div id="status-bar"></div>
 
 <div id="view-home" class="home-container">
-  <h1 style="font-size: 2.5rem; color: var(--primary); text-shadow: 0 0 15px rgba(56,189,248,0.3);">HỆ THỐNG SCADA TRỰC TUYẾN</h1>
-  <div class="station-grid">
-    <div class="station-card" onclick="switchPage('view-detail')">
-      <div style="font-size: 60px; margin-bottom: 15px;">📊</div>
-      <h2 style="margin: 0;">Trạm Giám Sát 01</h2>
-      <p style="font-size: 13px; color: #94a3b8; margin: 15px 0;">Hỗ trợ lưu trữ 24h & Scrollbar X-Y</p>
-      <button class="btn btn-primary">TRUY CẬP NGAY</button>
-    </div>
-    <div class="station-card locked">
-      <div style="font-size: 60px; margin-bottom: 15px;">🔒</div>
-      <h2 style="margin: 0;">Trạm Giám Sát 02</h2>
-      <button class="btn btn-secondary" disabled>ĐANG BẢO TRÌ</button>
-    </div>
+  <h1>HỆ THỐNG SCADA</h1>
+  <div class="station-card" onclick="switchPage('view-detail')">
+    TRUY CẬP
   </div>
 </div>
 
 <div id="view-detail" class="detail-view">
-  <div class="top-nav">
-    <button class="btn btn-secondary" style="width: auto;" onclick="switchPage('view-home')">⬅ QUAY LẠI</button>
-    <div style="text-align: right;">
-      <div id="live-clock" style="font-family: monospace; font-size: 1.3rem; color: var(--primary);">--:--:--</div>
-      <small id="sync-status" style="color: #64748b;">Đang đồng bộ dữ liệu Cloud...</small>
+
+  <button onclick="switchPage('view-home')">⬅</button>
+  <div id="live-clock"></div>
+
+  <div>
+    <div id="card-temp">
+      <span id="val-temp">--</span>°C
+    </div>
+    <div>
+      <span id="val-hum">--</span>%
+    </div>
+    <button class="btn btn-primary" onclick="scrollToEnd()">REALTIME</button>
+  </div>
+
+  <div class="chart-viewport" id="viewport">
+    <div class="chart-wrapper">
+      <canvas id="hmiChart"></canvas>
     </div>
   </div>
 
-  <div class="main-layout">
-    <div class="sidebar">
-      <div class="monitor-item" id="card-temp">
-        <small style="color:#94a3b8; font-weight: bold;">TEMPERATURE</small>
-        <div class="val-display"><span id="val-temp">--</span><span class="unit">°C</span></div>
-      </div>
-      <div class="monitor-item" style="border-left-color: var(--success);">
-        <small style="color:#94a3b8; font-weight: bold;">HUMIDITY</small>
-        <div class="val-display"><span id="val-hum">--</span><span class="unit">%</span></div>
-      </div>
-      <button class="btn btn-primary" onclick="scrollToEnd()">BÁM SÁT HIỆN TẠI</button>
-    </div>
-
-    <div class="chart-viewport" id="viewport">
-      <div class="chart-wrapper">
-        <canvas id="hmiChart"></canvas>
-      </div>
-    </div>
-  </div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
 <script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyBWRpQCnDWV5YQpoXZ_o7aqfGdv_7yUT38",
-    authDomain: "wed-demo-d236a.firebaseapp.com",
-    databaseURL: "https://wed-demo-d236a-default-rtdb.firebaseio.com",
-    projectId: "wed-demo-d236a",
-    storageBucket: "wed-demo-d236a.firebasestorage.app",
-    messagingSenderId: "410178635616",
-    appId: "1:410178635616:web:c4d513a888176847198005"
-  };
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
+// FIREBASE
+const firebaseConfig={
+  apiKey:"AIza...",
+  databaseURL:"https://wed-demo-d236a-default-rtdb.firebaseio.com"
+};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database();
 
-  function switchPage(id) {
-    document.getElementById('view-home').style.display = (id === 'view-home' ? 'block' : 'none');
-    document.getElementById('view-detail').style.display = (id === 'view-detail' ? 'flex' : 'none');
-    if(id === 'view-detail') setTimeout(scrollToEnd, 300);
+// UI
+const bar=document.getElementById("status-bar");
+const viewport=document.getElementById("viewport");
+
+let autoScroll=true;
+
+// CHART
+const ctx=document.getElementById("hmiChart").getContext("2d");
+const hmiChart=new Chart(ctx,{
+  type:"line",
+  data:{
+    datasets:[
+      {label:"Temp",data:[],borderColor:"#38bdf8"},
+      {label:"Hum",data:[],borderColor:"#10b981"}
+    ]
+  },
+  options:{
+    responsive:true,
+    maintainAspectRatio:false,
+    scales:{
+      x:{type:"time"},
+      y:{min:0,max:100}
+    }
   }
+});
 
-  const ctx = document.getElementById('hmiChart').getContext('2d');
-  const hmiChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      datasets: [
-        { 
-          label: 'Nhiệt độ (°C)', data: [], 
-          borderColor: '#38bdf8', 
-          backgroundColor: 'transparent', // BỎ ĐỘ ÁNH XẠ THEO YÊU CẦU
-          borderWidth: 3, pointRadius: 2, tension: 0.3, fill: false 
-        },
-        { 
-          label: 'Độ ẩm (%)', data: [], 
-          borderColor: '#10b981', 
-          backgroundColor: 'transparent', // BỎ ĐỘ ÁNH XẠ THEO YÊU CẦU
-          borderWidth: 3, pointRadius: 2, tension: 0.3, fill: false 
-        }
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      scales: {
-        x: { 
-          type: 'time', 
-          time: { unit: 'minute', displayFormats: { minute: 'HH:mm' } },
-          grid: { color: 'rgba(255,255,255,0.05)' }
-          // Bỏ thuộc tính min để biểu đồ tự giãn theo dữ liệu 24h
-        },
-        y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.05)' } }
-      },
-      plugins: {
-        tooltip: { mode: 'index', intersect: false }
-      }
-    }
-  });
+// SWITCH PAGE
+function switchPage(id){
+  view-home.style.display=id==="view-home"?"block":"none";
+  view-detail.style.display=id==="view-detail"?"flex":"none";
+}
 
-  function scrollToEnd() {
-    const v = document.getElementById('viewport');
-    v.scrollLeft = v.scrollWidth;
+// REALTIME BUTTON
+function scrollToEnd(){
+  viewport.scrollLeft=viewport.scrollWidth;
+  autoScroll=true;
+}
+
+// SCROLL -> KHÓA VIEW
+viewport.addEventListener("scroll",()=>{
+  autoScroll=false;
+});
+
+// DATA REALTIME
+db.ref("data").on("value",snap=>{
+  const v=snap.val();
+  if(!v)return;
+
+  const now=Date.now();
+  const t=parseFloat(v.temp)||0;
+  const h=parseFloat(v.hum)||0;
+
+  val-temp.innerText=t;
+  val-hum.innerText=h;
+
+  if(t>45) card-temp.classList.add("alarm-red");
+  else card-temp.classList.remove("alarm-red");
+
+  hmiChart.data.datasets[0].data.push({x:now,y:t});
+  hmiChart.data.datasets[1].data.push({x:now,y:h});
+
+  hmiChart.update("none");
+
+  if(autoScroll) scrollToEnd();
+});
+
+// STATUS (CHẠY NGANG)
+db.ref(".info/connected").on("value",snap=>{
+  if(snap.val()){
+    bar.style.display="block";
+    bar.style.background="#10b981";
+    bar.innerHTML=`<marquee scrollamount="10">
+    ✅ KẾT NỐI SERVER THÀNH CÔNG - HỆ THỐNG HOẠT ĐỘNG ỔN ĐỊNH
+    </marquee>`;
+    setTimeout(()=>bar.style.display="none",4000);
+  }else{
+    bar.style.display="block";
+    bar.style.background="#ef4444";
+    bar.innerHTML=`<marquee scrollamount="10">
+    ⚠️ MẤT KẾT NỐI - KIỂM TRA INTERNET NGAY
+    </marquee>`;
   }
+});
 
-  db.ref("history").orderByChild("timestamp").limitToLast(1440).once("value", (snap) => {
-    const data = snap.val();
-    if (data) {
-      const sorted = Object.values(data).sort((a, b) => a.timestamp - b.timestamp);
-      sorted.forEach(item => {
-        hmiChart.data.datasets[0].data.push({ x: item.timestamp, y: item.temp });
-        hmiChart.data.datasets[1].data.push({ x: item.timestamp, y: item.hum });
-      });
-      hmiChart.update();
-      scrollToEnd();
-      document.getElementById("sync-status").innerText = "Đã tải dữ liệu 24h.";
-    }
-  });
+// CLOCK
+setInterval(()=>{
+  live-clock.innerText=new Date().toLocaleTimeString();
+},1000);
 
-  db.ref("data").on("value", (snap) => {
-    const val = snap.val();
-    if (val) {
-      const now = new Date().getTime();
-      const t = parseFloat(val.temp);
-      const h = parseFloat(val.hum);
-
-      document.getElementById("val-temp").innerText = t;
-      document.getElementById("val-hum").innerText = h;
-
-      if(t > 45) document.getElementById("card-temp").classList.add("alarm-red");
-      else document.getElementById("card-temp").classList.remove("alarm-red");
-
-      hmiChart.data.datasets[0].data.push({ x: now, y: t });
-      hmiChart.data.datasets[1].data.push({ x: now, y: h });
-
-      // CẬP NHẬT KHOẢNG TRỐNG TƯƠNG LAI MÀ KHÔNG GIỚI HẠN QUÁ KHỨ
-      const futureGap = 5 * 60 * 1000; // Để trống 5 phút tương lai
-      hmiChart.options.scales.x.max = now + futureGap;
-
-      hmiChart.update('none');
-      
-      const v = document.getElementById('viewport');
-      if (v.scrollLeft + v.clientWidth >= v.scrollWidth - 150) scrollToEnd();
-    }
-  });
-
-  setInterval(() => { document.getElementById("live-clock").innerText = new Date().toLocaleTimeString(); }, 1000);
 </script>
+
 </body>
 </html>
