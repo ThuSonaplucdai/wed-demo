@@ -83,12 +83,11 @@
 <div id="status-bar"></div>
 
 <div id="view-home" class="home-container">
-  <h1 style="font-size: 2.5rem; color: var(--primary); text-shadow: 0 0 15px rgba(56,189,248,0.3);">HỆ THỐNG SCADA TRỰC TUYẾN</h1>
+  <h1 style="font-size: 2.5rem; color: var(--primary);">HỆ THỐNG SCADA TRỰC TUYẾN</h1>
   <div class="station-grid">
     <div class="station-card" onclick="switchPage('view-detail')">
-      <div style="font-size: 60px; margin-bottom: 15px;">📊</div>
-      <h2 style="margin: 0;">Trạm Giám Sát 01</h2>
-      <p style="font-size: 13px; color: #94a3b8; margin: 15px 0;">Hỗ trợ lưu trữ 24h & Scrollbar X-Y</p>
+      <div style="font-size: 60px;">📊</div>
+      <h2>Trạm Giám Sát 01</h2>
       <button class="btn btn-primary">TRUY CẬP NGAY</button>
     </div>
   </div>
@@ -96,22 +95,19 @@
 
 <div id="view-detail" class="detail-view">
   <div class="top-nav">
-    <button class="btn btn-secondary" style="width: auto;" onclick="switchPage('view-home')">⬅ QUAY LẠI</button>
-    <div style="text-align: right;">
-      <div id="live-clock" style="font-family: monospace; font-size: 1.3rem; color: var(--primary);">--:--:--</div>
-      <small id="sync-status" style="color: #64748b;">Đang đồng bộ dữ liệu Cloud...</small>
+    <button class="btn btn-secondary" style="width:auto;" onclick="switchPage('view-home')">⬅ QUAY LẠI</button>
+    <div>
+      <div id="live-clock">--:--:--</div>
     </div>
   </div>
 
   <div class="main-layout">
     <div class="sidebar">
       <div class="monitor-item" id="card-temp">
-        <small style="color:#94a3b8; font-weight: bold;">TEMPERATURE</small>
-        <div class="val-display"><span id="val-temp">--</span><span class="unit">°C</span></div>
+        <div class="val-display"><span id="val-temp">--</span>°C</div>
       </div>
-      <div class="monitor-item" style="border-left-color: var(--success);">
-        <small style="color:#94a3b8; font-weight: bold;">HUMIDITY</small>
-        <div class="val-display"><span id="val-hum">--</span><span class="unit">%</span></div>
+      <div class="monitor-item">
+        <div class="val-display"><span id="val-hum">--</span>%</div>
       </div>
       <button class="btn btn-primary" onclick="scrollToEnd()">BÁM SÁT HIỆN TẠI</button>
     </div>
@@ -129,23 +125,28 @@
 
 <script>
 const firebaseConfig = {
-  apiKey: "AIzaSyBWRpQCnDWV5YQpoXZ_o7aqfGdv_7yUT38",
-  authDomain: "wed-demo-d236a.firebaseapp.com",
-  databaseURL: "https://wed-demo-d236a-default-rtdb.firebaseio.com",
-  projectId: "wed-demo-d236a",
-  storageBucket: "wed-demo-d236a.firebasestorage.app",
-  messagingSenderId: "410178635616",
-  appId: "1:410178635616:web:c4d513a888176847198005"
+  apiKey: "...",
+  databaseURL: "..."
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+
 const bar = document.getElementById("status-bar");
 
-// LIMIT DATA
-const MAX_POINTS = 1440;
-function limitData(arr) {
-  if (arr.length > MAX_POINTS) arr.shift();
+// 👉 BIẾN KIỂM SOÁT SCROLL
+let autoScroll = true;
+
+const viewport = document.getElementById('viewport');
+
+// 👉 PHÁT HIỆN USER SCROLL
+viewport.addEventListener('scroll', () => {
+  const isAtEnd = viewport.scrollWidth - (viewport.scrollLeft + viewport.clientWidth) < 50;
+  autoScroll = isAtEnd;
+});
+
+function scrollToEnd() {
+  viewport.scrollLeft = viewport.scrollWidth;
+  autoScroll = true;
 }
 
 function switchPage(id) {
@@ -154,13 +155,18 @@ function switchPage(id) {
   if(id === 'view-detail') setTimeout(scrollToEnd, 300);
 }
 
+const MAX_POINTS = 1440;
+function limitData(arr) {
+  if (arr.length > MAX_POINTS) arr.shift();
+}
+
 const ctx = document.getElementById('hmiChart').getContext('2d');
 const hmiChart = new Chart(ctx, {
   type: 'line',
   data: {
     datasets: [
-      { label: 'Nhiệt độ (°C)', data: [], borderWidth: 3, pointRadius: 2, tension: 0.3, fill: false },
-      { label: 'Độ ẩm (%)', data: [], borderWidth: 3, pointRadius: 2, tension: 0.3, fill: false }
+      { label: 'Temp', data: [], borderColor: '#38bdf8' },
+      { label: 'Hum', data: [], borderColor: '#10b981' }
     ]
   },
   options: {
@@ -173,72 +179,48 @@ const hmiChart = new Chart(ctx, {
   }
 });
 
-function scrollToEnd() {
-  const v = document.getElementById('viewport');
-  v.scrollLeft = v.scrollWidth;
-}
-
-// LOAD HISTORY
-db.ref("history").limitToLast(1440).once("value", (snap) => {
-  const data = snap.val() || {};
-  if (Object.keys(data).length) {
-    const sorted = Object.values(data).sort((a, b) => a.timestamp - b.timestamp);
-    sorted.forEach(item => {
-      hmiChart.data.datasets[0].data.push({ x: item.timestamp, y: item.temp });
-      hmiChart.data.datasets[1].data.push({ x: item.timestamp, y: item.hum });
-    });
-    hmiChart.update();
-    scrollToEnd();
-  }
-});
-
 // REALTIME
-db.ref("data").on("value", (snap) => {
+db.ref("data").on("value", snap => {
   const val = snap.val();
   if (!val) return;
 
-  const now = new Date().getTime();
+  const now = Date.now();
   const t = parseFloat(val.temp) || 0;
   const h = parseFloat(val.hum) || 0;
 
   document.getElementById("val-temp").innerText = t;
   document.getElementById("val-hum").innerText = h;
 
-  const card = document.getElementById("card-temp");
-  if(t > 45) card.classList.add("alarm-red");
-  else card.classList.remove("alarm-red");
-
-  hmiChart.data.datasets[0].data.push({ x: now, y: t });
-  hmiChart.data.datasets[1].data.push({ x: now, y: h });
+  hmiChart.data.datasets[0].data.push({x: now, y: t});
+  hmiChart.data.datasets[1].data.push({x: now, y: h});
 
   limitData(hmiChart.data.datasets[0].data);
   limitData(hmiChart.data.datasets[1].data);
 
   hmiChart.update('none');
 
-  const v = document.getElementById('viewport');
-  const isNearEnd = v.scrollWidth - (v.scrollLeft + v.clientWidth) < 200;
-  if (isNearEnd) scrollToEnd();
+  // 👉 CHỈ AUTO SCROLL KHI ĐANG Ở CUỐI
+  if (autoScroll) scrollToEnd();
 });
 
 // STATUS
-db.ref(".info/connected").on("value", (snap) => {
-  if (snap.val() === true) {
+db.ref(".info/connected").on("value", snap => {
+  if (snap.val()) {
     bar.style.display = "block";
-    bar.style.background = "#10b981";
-    bar.innerHTML = "✅ HỆ THỐNG TRỰC TUYẾN";
-    setTimeout(() => bar.style.display = "none", 3000);
+    bar.style.background = "green";
+    bar.innerText = "ONLINE";
+    setTimeout(()=>bar.style.display="none",2000);
   } else {
     bar.style.display = "block";
-    bar.style.background = "#ef4444";
-    bar.innerHTML = "⚠️ MẤT KẾT NỐI SERVER";
+    bar.style.background = "red";
+    bar.innerText = "OFFLINE";
   }
 });
 
 // CLOCK
-setInterval(() => {
+setInterval(()=>{
   document.getElementById("live-clock").innerText = new Date().toLocaleTimeString();
-}, 1000);
+},1000);
 </script>
 
 </body>
