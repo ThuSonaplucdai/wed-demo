@@ -268,10 +268,10 @@
     if (snap.val() === true) {
       bar.className = "bg-success"; bar.style.display = "block"; bar.style.background = "#10b981";
       bar.innerHTML = `<marquee scrollamount="25" loop="1">✅ HỆ THỐNG TRỰC TUYẾN - DỮ LIỆU ĐÃ ĐƯỢC KHÔI PHỤC TỪ CLOUD THÀNH CÔNG</marquee>`;
-      setTimeout(() => bar.style.display = "none", 8000);
+      setTimeout(() => bar.style.display = "none", 8500);
     } else {
       bar.className = "bg-error"; bar.style.display = "block"; bar.style.background = "#ef4444";
-      bar.innerHTML = `<marquee scrollamount="20">⚠️ CẢNH BÁO: MẤT KẾT NỐI SERVER FIREBASE!</marquee>`;
+      bar.innerHTML = `<marquee scrollamount="25">⚠️ CẢNH BÁO: MẤT KẾT NỐI SERVER FIREBASE!</marquee>`;
     }
   });
 </script>
