@@ -3,49 +3,46 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SCADA Pro - Khang</title>
+  <title>SCADA Advanced - Khang</title>
+  
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+
   <style>
     :root {
       --bg: #0f172a; --card: #1e293b; --primary: #38bdf8;
       --success: #10b981; --danger: #ef4444; --text: #f8fafc;
     }
-
     body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
-
-    /* THÔNG BÁO KẾT NỐI */
-    #status-bar { position: fixed; top: 0; width: 100%; z-index: 999; height: 35px; line-height: 35px; font-weight: bold; display: none; }
+    
+    /* STATUS BAR */
+    #status-bar { position: fixed; top: 0; width: 100%; z-index: 1000; height: 35px; line-height: 35px; font-weight: bold; display: none; text-align: center; }
     .bg-error { background: var(--danger); }
     .bg-success { background: var(--success); }
 
-    /* TRANG CHỦ */
-    .container { max-width: 1000px; margin: auto; padding: 60px 20px; }
+    /* HOME PAGE */
+    .container { max-width: 1100px; margin: auto; padding: 60px 20px; }
     .product-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 25px; }
-    
-    .product-card { 
-      background: var(--card); border-radius: 20px; overflow: hidden; border: 1px solid #334155; 
-      transition: 0.3s; cursor: pointer; position: relative;
-    }
+    .product-card { background: var(--card); border-radius: 20px; overflow: hidden; border: 1px solid #334155; transition: 0.3s; cursor: pointer; position: relative; }
     .product-card:hover { transform: translateY(-5px); border-color: var(--primary); }
-    
     .product-info { padding: 20px; }
     .product-img { height: 120px; display: flex; align-items: center; justify-content: center; font-size: 40px; background: rgba(255,255,255,0.02); }
-
-    /* TRẠNG THÁI CHƯA HOÀN THIỆN (TRẠM 2) */
     .locked { filter: grayscale(1); opacity: 0.6; cursor: not-allowed; }
-    .badge-comming { position: absolute; top: 10px; right: 10px; background: #f59e0b; color: #000; padding: 4px 10px; border-radius: 5px; font-size: 10px; font-weight: bold; }
 
-    /* TRANG CHI TIẾT */
+    /* PAGE TRAM 1 */
     .page { display: none; padding: 20px; animation: fadeIn 0.4s; }
-    .top-bar { display: flex; align-items: center; margin-bottom: 20px; }
-    .btn-back { background: #334155; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; }
+    .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; background: var(--card); padding: 15px; border-radius: 12px; }
+    .btn-back { background: #334155; color: white; border: none; padding: 10px 18px; border-radius: 8px; cursor: pointer; }
+    
+    .scada-layout { display: grid; grid-template-columns: 280px 1fr; gap: 20px; }
+    @media (max-width: 900px) { .scada-layout { grid-template-columns: 1fr; } }
 
-    /* BỐ CỤC SCADA CÓ BIỂU ĐỒ */
-    .scada-layout { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
-    @media (max-width: 768px) { .scada-layout { grid-template-columns: 1fr; } }
-
-    .stat-card { background: var(--card); padding: 20px; border-radius: 15px; border-left: 5px solid var(--primary); margin-bottom: 15px; }
-    .chart-container { background: var(--card); padding: 20px; border-radius: 15px; height: 400px; }
+    .stat-card { background: var(--card); padding: 20px; border-radius: 15px; border-left: 5px solid var(--primary); margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .chart-box { background: var(--card); padding: 20px; border-radius: 15px; height: 500px; position: relative; }
+    
+    .chart-controls { position: absolute; top: 10px; right: 20px; z-index: 10; }
+    .btn-reset { background: var(--primary); color: #000; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold; }
 
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   </style>
@@ -55,24 +52,23 @@
 <div id="status-bar"></div>
 
 <div id="page-home" class="container">
-  <h1 style="text-align: center; color: var(--primary);">HỆ THỐNG SCADA</h1>
+  <h1 style="text-align: center; color: var(--primary); margin-bottom: 40px;">HỆ THỐNG GIÁM SÁT TRỰC TUYẾN</h1>
   <div class="product-grid">
     <div class="product-card" onclick="showPage('page-tram1')">
-      <div class="product-img">📈</div>
+      <div class="product-img">📊</div>
       <div class="product-info">
         <h3>Trạm Giám Sát 01</h3>
-        <p style="color: #94a3b8; font-size: 14px;">Giám sát biểu đồ nhiệt độ & độ ẩm thời gian thực.</p>
-        <button style="width:100%; padding:10px; border-radius:8px; border:none; background:var(--primary); font-weight:bold;">MỞ HỆ THỐNG</button>
+        <p style="color: #94a3b8; font-size: 14px;">Nâng cấp: Biểu đồ thời gian thực tích hợp Zoom & Lịch sử ngày tháng.</p>
+        <button style="width:100%; padding:12px; border-radius:8px; border:none; background:var(--primary); font-weight:bold; cursor:pointer;">TRUY CẬP</button>
       </div>
     </div>
 
     <div class="product-card locked">
-      <span class="badge-comming">COMING SOON</span>
       <div class="product-img">🔒</div>
       <div class="product-info">
         <h3>Trạm Giám Sát 02</h3>
-        <p style="color: #94a3b8; font-size: 14px;">Thông tin đang được cập nhật. Vui lòng quay lại sau.</p>
-        <button disabled style="width:100%; padding:10px; border-radius:8px; border:none; background:#475569;">ĐANG CẬP NHẬT...</button>
+        <p style="color: #94a3b8; font-size: 14px;">Đang cập nhật nội dung hệ thống...</p>
+        <button disabled style="width:100%; padding:12px; border-radius:8px; border:none; background:#475569;">CHƯA SẴN SÀNG</button>
       </div>
     </div>
   </div>
@@ -80,23 +76,33 @@
 
 <div id="page-tram1" class="page">
   <div class="top-bar">
-    <button class="btn-back" onclick="showPage('page-home')">⬅ Quay lại</button>
-    <h2 style="margin-left: 20px; color: var(--primary);">GIÁM SÁT TRẠM 01</h2>
+    <button class="btn-back" onclick="showPage('page-home')">⬅ QUAY LẠI TRANG CHỦ</button>
+    <div style="text-align: right;">
+        <div style="color: var(--primary); font-weight: bold;">TRẠM 01: REAL-TIME MONITORING</div>
+        <small id="live-clock" style="color: #94a3b8;"></small>
+    </div>
   </div>
 
   <div class="scada-layout">
     <div class="stats-col">
       <div class="stat-card">
-        <small style="color: #94a3b8;">NHIỆT ĐỘ</small>
-        <div style="font-size: 40px; font-weight: bold;"><span id="temp">--</span>°C</div>
+        <div style="font-size: 12px; color: var(--primary); margin-bottom: 5px;">NHIỆT ĐỘ</div>
+        <div style="font-size: 42px; font-weight: 800;"><span id="temp">--</span><span style="font-size: 20px; color: #64748b; margin-left: 5px;">°C</span></div>
       </div>
       <div class="stat-card" style="border-left-color: var(--success);">
-        <small style="color: #94a3b8;">ĐỘ ẨM</small>
-        <div style="font-size: 40px; font-weight: bold;"><span id="hum">--</span>%</div>
+        <div style="font-size: 12px; color: var(--success); margin-bottom: 5px;">ĐỘ ẨM</div>
+        <div style="font-size: 42px; font-weight: 800;"><span id="hum">--</span><span style="font-size: 20px; color: #64748b; margin-left: 5px;">%</span></div>
+      </div>
+      <div style="padding: 10px; font-size: 12px; color: #64748b; font-style: italic;">
+        * Sử dụng chuột để Zoom, giữ chuột trái để kéo biểu đồ.
       </div>
     </div>
-    <div class="chart-container">
-      <canvas id="myChart"></canvas>
+
+    <div class="chart-box">
+      <div class="chart-controls">
+        <button class="btn-reset" onclick="resetZoom()">RESET ZOOM</button>
+      </div>
+      <canvas id="scadaChart"></canvas>
     </div>
   </div>
 </div>
@@ -117,65 +123,89 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  // CHUYỂN TRANG
   function showPage(id) {
     document.getElementById('page-home').style.display = (id === 'page-home' ? 'block' : 'none');
     document.getElementById('page-tram1').style.display = (id === 'page-tram1' ? 'block' : 'none');
   }
 
-  // THÔNG BÁO KẾT NỐI
+  // --- CẤU HÌNH BIỂU ĐỒ NÂNG CẤP ---
+  const ctx = document.getElementById('scadaChart').getContext('2d');
+  const scadaChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [
+        { label: 'Nhiệt độ (°C)', data: [], borderColor: '#38bdf8', backgroundColor: 'rgba(56, 189, 248, 0.1)', tension: 0.3, fill: true, pointRadius: 4 },
+        { label: 'Độ ẩm (%)', data: [], borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.3, fill: true, pointRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: 'second', displayFormats: { second: 'HH:mm:ss', minute: 'HH:mm', hour: 'dd/MM HH:mm' } },
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: '#94a3b8' }
+        },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }
+      },
+      plugins: {
+        legend: { labels: { color: 'white', font: { size: 14 } } },
+        zoom: {
+          pan: { enabled: true, mode: 'x' },
+          zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }
+        },
+        tooltip: {
+            callbacks: {
+                title: (context) => {
+                    const d = new Date(context[0].parsed.x);
+                    return d.toLocaleString('vi-VN'); // Hiển thị đầy đủ ngày tháng năm giờ phút giây khi rê chuột
+                }
+            }
+        }
+      }
+    }
+  });
+
+  function resetZoom() { scadaChart.resetZoom(); }
+
+  // --- CẬP NHẬT DỮ LIỆU TỪ FIREBASE ---
+  db.ref("data").on("value", (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      const now = new Date();
+      const t = parseFloat(data.temp) || 0;
+      const h = parseFloat(data.hum) || 0;
+
+      document.getElementById("temp").innerText = t;
+      document.getElementById("hum").innerText = h;
+      document.getElementById("live-clock").innerText = now.toLocaleString('vi-VN');
+
+      // Thêm dữ liệu vào biểu đồ
+      scadaChart.data.datasets[0].data.push({ x: now, y: t });
+      scadaChart.data.datasets[1].data.push({ x: now, y: h });
+
+      // Giới hạn hiển thị 30 điểm để biểu đồ mượt, nhưng vẫn có thể Zoom/Pan nếu cần
+      if (scadaChart.data.datasets[0].data.length > 50) {
+        scadaChart.data.datasets[0].data.shift();
+        scadaChart.data.datasets[1].data.shift();
+      }
+      scadaChart.update('quiet'); // Cập nhật mượt mà
+    }
+  });
+
+  // --- TRẠNG THÁI KẾT NỐI ---
   const statusBar = document.getElementById("status-bar");
   db.ref(".info/connected").on("value", (snap) => {
     if (snap.val() === true) {
       statusBar.className = "bg-success"; statusBar.style.display = "block";
-      statusBar.innerHTML = `<marquee scrollamount="10" loop="1">✅ ĐÃ KẾT NỐI TRẠM 01 THÀNH CÔNG</marquee>`;
+      statusBar.innerHTML = `<marquee scrollamount="10" loop="1">✅ HỆ THỐNG TRỰC TUYẾN - ĐANG NHẬN DỮ LIỆU</marquee>`;
       setTimeout(() => { statusBar.style.display = "none"; }, 5000);
     } else {
       statusBar.className = "bg-error"; statusBar.style.display = "block";
-      statusBar.innerHTML = `<marquee scrollamount="8">⚠️ ĐANG MẤT KẾT NỐI VỚI HỆ THỐNG...</marquee>`;
-    }
-  });
-
-  // KHỞI TẠO BIỂU ĐỒ
-  const ctx = document.getElementById('myChart').getContext('2d');
-  const myChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: [], // Thời gian
-      datasets: [
-        { label: 'Nhiệt độ (°C)', data: [], borderColor: '#38bdf8', tension: 0.4, fill: false },
-        { label: 'Độ ẩm (%)', data: [], borderColor: '#10b981', tension: 0.4, fill: false }
-      ]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      scales: { y: { beginAtZero: true, grid: { color: '#334155' } }, x: { grid: { display: false } } },
-      plugins: { legend: { labels: { color: 'white' } } }
-    }
-  });
-
-  // LẤY DỮ LIỆU & VẼ BIỂU ĐỒ
-  db.ref("data").on("value", (snapshot) => {
-    const data = snapshot.val();
-    if (data) {
-      const t = data.temp || 0;
-      const h = data.hum || 0;
-      const now = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
-      // Cập nhật số
-      document.getElementById("temp").innerText = t;
-      document.getElementById("hum").innerText = h;
-
-      // Cập nhật biểu đồ (giữ lại 10 điểm gần nhất)
-      if (myChart.data.labels.length > 10) {
-        myChart.data.labels.shift();
-        myChart.data.datasets[0].data.shift();
-        myChart.data.datasets[1].data.shift();
-      }
-      myChart.data.labels.push(now);
-      myChart.data.datasets[0].data.push(t);
-      myChart.data.datasets[1].data.push(h);
-      myChart.update();
+      statusBar.innerHTML = `<marquee scrollamount="8">⚠️ MẤT KẾT NỐI VỚI MÁY CHỦ FIREBASE!</marquee>`;
     }
   });
 </script>
