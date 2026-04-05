@@ -304,18 +304,6 @@
       font-size: 1.1rem;
     }
 
-    .chart-info {
-      background: rgba(56, 189, 248, 0.1);
-      padding: 12px 15px;
-      border-radius: 8px;
-      margin-bottom: 15px;
-      font-size: 0.9rem;
-      border-left: 3px solid var(--primary);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
     .chart-viewport {
       background: #0f172a;
       border-radius: 12px;
@@ -323,7 +311,6 @@
       overflow: auto;
       position: relative;
       height: 400px;
-      box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.3);
     }
 
     .chart-wrapper {
@@ -382,6 +369,18 @@
       background: #475569;
     }
 
+    .btn-back {
+      background: rgba(52, 65, 85, 0.5);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--text);
+      padding: 10px 15px;
+    }
+
+    .btn-back:hover {
+      background: rgba(56, 189, 248, 0.1);
+      border-color: var(--primary);
+    }
+
     /* ============ RESPONSIVE ============ */
     @media (max-width: 768px) {
       .navbar {
@@ -403,12 +402,6 @@
 
       .container {
         padding: 15px;
-      }
-
-      .chart-info {
-        flex-direction: column;
-        gap: 10px;
-        align-items: flex-start;
       }
     }
   </style>
@@ -451,11 +444,7 @@
 
     <!-- CHART SECTION -->
     <div class="chart-section">
-      <h3>📊 Biểu Đồ Theo Dõi 24H - Chạy Thời Gian Thực</h3>
-      <div class="chart-info">
-        <span>⏱️ Dữ liệu: DD/MM/YYYY HH:mm | 🔮 Tương lai: 5 phút</span>
-        <span id="dataPointsInfo" style="color: var(--primary); font-weight: bold;">Điểm dữ liệu: 0</span>
-      </div>
+      <h3>📊 Biểu Đồ Theo Dõi 24H</h3>
       <div class="chart-viewport">
         <div class="chart-wrapper">
           <canvas id="chartCanvas"></canvas>
@@ -494,8 +483,8 @@
       icon: "🌡️",
       description: "Giám sát nhiệt độ và độ ẩm môi trường",
       subsystems: {
-        sub1: { name: "Server 01", metrics: ["temp", "humidity"], fbPath: "server01" },
-        sub2: { name: "Server 02", metrics: ["temp", "humidity"], fbPath: "server02" }
+        sub1: { name: "Khu Vực Máy Chủ", metrics: ["temp", "humidity"] },
+        sub2: { name: "Khu Vực Lạnh", metrics: ["temp", "humidity"] }
       }
     },
     sys2: {
@@ -503,8 +492,8 @@
       icon: "⚡",
       description: "Quản lý và giám sát tiêu thụ điện",
       subsystems: {
-        sub3: { name: "UPS Chính", metrics: ["voltage", "current"], fbPath: "ups_main" },
-        sub4: { name: "PDU Phụ", metrics: ["voltage", "current"], fbPath: "pdu_aux" }
+        sub3: { name: "UPS Chính", metrics: ["voltage", "current"] },
+        sub4: { name: "PDU Phụ", metrics: ["voltage", "current"] }
       }
     },
     sys3: {
@@ -512,8 +501,8 @@
       icon: "🖥️",
       description: "Theo dõi hiệu suất máy chủ",
       subsystems: {
-        sub5: { name: "Server 03", metrics: ["cpu", "memory"], fbPath: "server03" },
-        sub6: { name: "Server 04", metrics: ["cpu", "memory"], fbPath: "server04" }
+        sub5: { name: "Server 01", metrics: ["cpu", "memory"] },
+        sub6: { name: "Server 02", metrics: ["cpu", "memory"] }
       }
     }
   };
@@ -523,22 +512,15 @@
   let currentSystem = null;
   let currentSubsystem = null;
   let chartInstance = null;
-  let chartUpdateInterval = null;
-  const UPDATE_THROTTLE = 1000;
-  const MAX_DATA_POINTS = 1440;
-  const FUTURE_GAP = 5 * 60 * 1000; // 5 minutes
-
-  // Separate data storage for each subsystem
-  const chartDataStore = {
-    server01: { temp: [], humidity: [] },
-    server02: { temp: [], humidity: [] },
-    ups_main: { voltage: [], current: [] },
-    pdu_aux: { voltage: [], current: [] },
-    server03: { cpu: [], memory: [] },
-    server04: { cpu: [], memory: [] }
+  const MAX_DATA_POINTS = 1440; // 24 hours @ 1 point/min
+  const chartData = {
+    temp: [],
+    humidity: [],
+    voltage: [],
+    current: [],
+    cpu: [],
+    memory: []
   };
-
-  let currentChartData = null;
 
   // ============ CLOCK UPDATE ============
   setInterval(() => {
@@ -562,12 +544,8 @@
 
   // ============ NAVIGATION ============
   function navigateTo(view, system = null, subsystem = null) {
+    // Hide all views
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    
-    if (chartUpdateInterval) {
-      clearInterval(chartUpdateInterval);
-      chartUpdateInterval = null;
-    }
     
     currentView = view;
     currentSystem = system;
@@ -670,64 +648,25 @@
 
   // ============ UPDATE METRICS FROM FIREBASE ============
   function updateMetrics() {
-    Object.keys(systemsHierarchy).forEach(sysKey => {
-      const sys = systemsHierarchy[sysKey];
-      Object.keys(sys.subsystems).forEach(subKey => {
-        const sub = sys.subsystems[subKey];
-        const fbPath = sub.fbPath;
+    db.ref('data').on('value', (snap) => {
+      const data = snap.val();
+      if (data) {
+        updateMetricCard('temp', data.temp, 15, 35);
+        updateMetricCard('humidity', data.hum, 30, 80);
+        
+        // Add to chart data
+        const now = new Date().getTime();
+        chartData.temp.push({ x: now, y: parseFloat(data.temp) });
+        chartData.humidity.push({ x: now, y: parseFloat(data.hum) });
 
-        db.ref(`systems/${fbPath}/data`).on('value', (snap) => {
-          const data = snap.val();
-          if (data) {
-            if (currentSystem === sysKey && currentSubsystem === subKey) {
-              updateMetricCard('temp', data.temp, 15, 35);
-              updateMetricCard('humidity', data.hum, 30, 80);
-              
-              const now = new Date().getTime();
-              if (chartDataStore[fbPath]) {
-                if (data.temp !== undefined) {
-                  chartDataStore[fbPath].temp.push({ x: now, y: parseFloat(data.temp) });
-                }
-                if (data.hum !== undefined) {
-                  chartDataStore[fbPath].humidity.push({ x: now, y: parseFloat(data.hum) });
-                }
+        // Keep only last 1440 points
+        if (chartData.temp.length > MAX_DATA_POINTS) {
+          chartData.temp.shift();
+          chartData.humidity.shift();
+        }
 
-                while (chartDataStore[fbPath].temp.length > MAX_DATA_POINTS) {
-                  chartDataStore[fbPath].temp.shift();
-                  chartDataStore[fbPath].humidity.shift();
-                }
-
-                updateDataPointsInfo();
-              }
-
-              if (chartInstance) {
-                updateChartAxisAndScroll();
-              }
-
-              document.getElementById('syncStatus').innerText = '✅ Đã cập nhật';
-            }
-          }
-        });
-
-        db.ref(`systems/${fbPath}/history`).orderByChild('timestamp').limitToLast(1440).once('value', (snap) => {
-          const data = snap.val();
-          if (data) {
-            const sorted = Object.values(data).sort((a, b) => a.timestamp - b.timestamp);
-            
-            if (chartDataStore[fbPath]) {
-              chartDataStore[fbPath].temp = [];
-              chartDataStore[fbPath].humidity = [];
-              
-              sorted.forEach(item => {
-                chartDataStore[fbPath].temp.push({ x: item.timestamp, y: item.temp });
-                chartDataStore[fbPath].humidity.push({ x: item.timestamp, y: item.hum });
-              });
-
-              updateDataPointsInfo();
-            }
-          }
-        });
-      });
+        document.getElementById('syncStatus').innerText = '✅ Đã cập nhật';
+      }
     });
   }
 
@@ -741,6 +680,7 @@
     const numValue = parseFloat(value);
     el.innerText = numValue.toFixed(1);
 
+    // Update status
     card.classList.remove('alarm', 'warning');
     if (numValue > max) {
       card.classList.add('alarm');
@@ -753,35 +693,6 @@
     }
   }
 
-  function updateDataPointsInfo() {
-    if (currentChartData) {
-      const totalPoints = currentChartData.temp.length;
-      document.getElementById('dataPointsInfo').innerText = `Điểm dữ liệu: ${totalPoints}/${MAX_DATA_POINTS}`;
-    }
-  }
-
-  // ============ UPDATE CHART AXIS & AUTO-SCROLL ============
-  function updateChartAxisAndScroll() {
-    if (!chartInstance) return;
-
-    const now = new Date().getTime();
-    
-    chartInstance.options.scales.x.min = now - (24 * 60 * 60 * 1000);
-    chartInstance.options.scales.x.max = now + FUTURE_GAP;
-
-    chartInstance.data.datasets[0].data = currentChartData.temp;
-    chartInstance.data.datasets[1].data = currentChartData.humidity;
-
-    chartInstance.update('none');
-
-    const viewport = document.querySelector('.chart-viewport');
-    if (viewport && viewport.scrollLeft + viewport.clientWidth >= viewport.scrollWidth - 150) {
-      scrollChartToEnd();
-    }
-
-    updateDataPointsInfo();
-  }
-
   // ============ CHART INITIALIZATION ============
   function initChart() {
     const canvas = document.getElementById('chartCanvas');
@@ -791,38 +702,31 @@
       chartInstance.destroy();
     }
 
-    if (chartUpdateInterval) {
-      clearInterval(chartUpdateInterval);
-    }
-
-    const sub = systemsHierarchy[currentSystem].subsystems[currentSubsystem];
-    currentChartData = chartDataStore[sub.fbPath];
-
     const ctx = canvas.getContext('2d');
-    const now = new Date().getTime();
-
     chartInstance = new Chart(ctx, {
       type: 'line',
       data: {
         datasets: [
           {
             label: 'Nhiệt độ (°C)',
-            data: currentChartData.temp,
+            data: chartData.temp,
             borderColor: '#38bdf8',
-            backgroundColor: 'transparent',
-            borderWidth: 2,
-            pointRadius: 0,
-            tension: 0.2,
+            backgroundColor: 'rgba(56, 189, 248, 0.05)',
+            borderWidth: 3,
+            pointRadius: 1,
+            pointBackgroundColor: '#38bdf8',
+            tension: 0.3,
             fill: false
           },
           {
             label: 'Độ ẩm (%)',
-            data: currentChartData.humidity,
+            data: chartData.humidity,
             borderColor: '#10b981',
-            backgroundColor: 'transparent',
-            borderWidth: 2,
-            pointRadius: 0,
-            tension: 0.2,
+            backgroundColor: 'rgba(16, 185, 129, 0.05)',
+            borderWidth: 3,
+            pointRadius: 1,
+            pointBackgroundColor: '#10b981',
+            tension: 0.3,
             fill: false
           }
         ]
@@ -830,25 +734,19 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        animation: false,
         scales: {
           x: {
             type: 'time',
-            min: now - (24 * 60 * 60 * 1000),
-            max: now + FUTURE_GAP,
             time: {
               unit: 'minute',
-              displayFormats: { 
-                minute: 'dd/MM/yyyy HH:mm'
-              },
-              tooltipFormat: 'dd/MM/yyyy HH:mm:ss'
+              displayFormats: { minute: 'HH:mm' }
             },
-            grid: { color: 'rgba(255, 255, 255, 0.03)' }
+            grid: { color: 'rgba(255, 255, 255, 0.05)' }
           },
           y: {
             min: 0,
             max: 100,
-            grid: { color: 'rgba(255, 255, 255, 0.03)' }
+            grid: { color: 'rgba(255, 255, 255, 0.05)' }
           }
         },
         plugins: {
@@ -861,22 +759,11 @@
             backgroundColor: 'rgba(0, 0, 0, 0.7)',
             borderColor: 'var(--primary)',
             borderWidth: 1,
-            titleColor: 'var(--primary)',
-            titleFont: { size: 12 },
-            bodyFont: { size: 12 }
+            titleColor: 'var(--primary)'
           }
         }
       }
     });
-
-    chartUpdateInterval = setInterval(() => {
-      if (chartInstance && currentView === 'details') {
-        updateChartAxisAndScroll();
-      }
-    }, 1000);
-
-    updateDataPointsInfo();
-    scrollChartToEnd();
   }
 
   function scrollChartToEnd() {
@@ -886,20 +773,37 @@
     }
   }
 
-  // ============ CLEANUP ON PAGE UNLOAD ============
-  window.addEventListener('beforeunload', () => {
-    if (chartInstance) {
-      chartInstance.destroy();
-    }
-    if (chartUpdateInterval) {
-      clearInterval(chartUpdateInterval);
-    }
-  });
+  // ============ LOAD HISTORY DATA ============
+  function loadHistoryData() {
+    db.ref('history').orderByChild('timestamp').limitToLast(1440).once('value', (snap) => {
+      const data = snap.val();
+      if (data) {
+        const sorted = Object.values(data).sort((a, b) => a.timestamp - b.timestamp);
+        chartData.temp = [];
+        chartData.humidity = [];
+        
+        sorted.forEach(item => {
+          chartData.temp.push({ x: item.timestamp, y: item.temp });
+          chartData.humidity.push({ x: item.timestamp, y: item.hum });
+        });
+
+        if (chartInstance) {
+          chartInstance.data.datasets[0].data = chartData.temp;
+          chartInstance.data.datasets[1].data = chartData.humidity;
+          chartInstance.update();
+          scrollChartToEnd();
+        }
+
+        document.getElementById('syncStatus').innerText = '✅ Đã tải dữ liệu 24h';
+      }
+    });
+  }
 
   // ============ INITIALIZATION ============
   window.addEventListener('load', () => {
     renderSystems();
     updateMetrics();
+    loadHistoryData();
   });
 </script>
 
