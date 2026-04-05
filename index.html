@@ -3,137 +3,466 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SCADA ULTIMATE EDITION - 24H PERSISTENT</title>
+  <title>SCADA ULTIMATE EDITION - HIERARCHICAL SYSTEM</title>
   
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 
   <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
     :root {
-      --bg: #020617; --card: #1e293b; --primary: #38bdf8;
-      --success: #10b981; --danger: #ef4444; --text: #f8fafc;
-    }
-    body { 
-      margin: 0; font-family: 'Segoe UI', sans-serif; 
-      background: var(--bg); color: var(--text); overflow-x: hidden;
-      display: flex; flex-direction: column; height: 100vh;
-    }
-
-    #status-bar {
-      position: fixed; top: 0; width: 100%; height: 35px; line-height: 35px;
-      z-index: 9999; font-weight: bold; text-align: center; display: none;
+      --bg: #020617; 
+      --card: #1e293b; 
+      --primary: #38bdf8;
+      --success: #10b981; 
+      --warning: #f59e0b;
+      --danger: #ef4444; 
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
     }
 
-    .home-container { max-width: 1100px; margin: auto; padding: 60px 20px; text-align: center; }
-    .station-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-top: 40px; }
-    
-    .station-card {
-      background: var(--card); border-radius: 20px; padding: 30px;
-      border: 1px solid rgba(255,255,255,0.05); transition: 0.4s; cursor: pointer;
-    }
-    .station-card:hover { transform: translateY(-10px); border-color: var(--primary); box-shadow: 0 15px 30px rgba(56,189,248,0.1); }
-    .locked { opacity: 0.4; filter: grayscale(1); cursor: not-allowed; }
-
-    .detail-view { display: none; flex-direction: column; height: 100vh; padding: 15px; box-sizing: border-box; animation: fadeIn 0.5s; }
-    
-    .top-nav {
-      display: flex; justify-content: space-between; align-items: center;
-      background: var(--card); padding: 12px 20px; border-radius: 12px; margin-bottom: 15px;
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
 
-    .main-layout { display: grid; grid-template-columns: 280px 1fr; gap: 15px; flex-grow: 1; min-height: 0; }
-    
-    .monitor-item {
-      background: var(--card); padding: 20px; border-radius: 15px;
-      border-left: 6px solid var(--primary); margin-bottom: 15px;
-    }
-    .val-display { font-size: 42px; font-weight: 900; margin-top: 5px; }
-    .unit { font-size: 16px; color: #64748b; margin-left: 5px; }
-
-    .chart-viewport { 
-      background: #0f172a; border-radius: 15px; border: 1px solid rgba(255,255,255,0.05); 
-      overflow: auto; position: relative; flex-grow: 1;
-    }
-    
-    /* TĂNG ĐỘ RỘNG ĐỂ CHỨA DỮ LIỆU 24H KHÔNG BỊ DÍNH NHAU */
-    .chart-wrapper { 
-      width: 10000px; 
-      height: 1000px; 
-      min-height: 100%; 
+    /* ============ NAVIGATION ============ */
+    .navbar {
+      background: linear-gradient(90deg, #0f172a 0%, #1e293b 100%);
+      padding: 15px 25px;
+      border-bottom: 2px solid var(--primary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 20px rgba(56, 189, 248, 0.1);
     }
 
-    .chart-viewport::-webkit-scrollbar { width: 10px; height: 12px; }
-    .chart-viewport::-webkit-scrollbar-track { background: #020617; }
-    .chart-viewport::-webkit-scrollbar-thumb { background: #334155; border-radius: 5px; border: 2px solid #020617; }
-    .chart-viewport::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+    .navbar h1 {
+      font-size: 1.8rem;
+      color: var(--primary);
+      text-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+    }
 
+    .navbar-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .live-clock {
+      font-family: monospace;
+      font-size: 1.2rem;
+      color: var(--primary);
+      font-weight: bold;
+    }
+
+    .sync-status {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    /* ============ BREADCRUMB ============ */
+    .breadcrumb {
+      background: var(--card);
+      padding: 12px 25px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .breadcrumb span {
+      color: var(--primary);
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    .breadcrumb span:hover {
+      color: #60d5ff;
+    }
+
+    /* ============ MAIN CONTAINER ============ */
+    .container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 25px;
+    }
+
+    /* ============ VIEWS ============ */
+    .view {
+      display: none;
+      animation: fadeIn 0.5s ease-in;
+    }
+
+    .view.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ============ HOME VIEW ============ */
+    .systems-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 25px;
+      margin-bottom: 30px;
+    }
+
+    .system-card {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      border: 2px solid rgba(56, 189, 248, 0.2);
+      border-radius: 15px;
+      padding: 25px;
+      cursor: pointer;
+      transition: all 0.4s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .system-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.1), transparent);
+      transition: left 0.5s ease;
+    }
+
+    .system-card:hover::before {
+      left: 100%;
+    }
+
+    .system-card:hover {
+      transform: translateY(-8px);
+      border-color: var(--primary);
+      box-shadow: 0 15px 40px rgba(56, 189, 248, 0.15);
+    }
+
+    .system-icon {
+      font-size: 3rem;
+      margin-bottom: 15px;
+    }
+
+    .system-card h2 {
+      font-size: 1.3rem;
+      margin: 10px 0;
+      color: var(--primary);
+    }
+
+    .system-card p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin: 10px 0;
+    }
+
+    .subsystem-count {
+      background: rgba(56, 189, 248, 0.1);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      margin-top: 12px;
+      color: var(--primary);
+      font-weight: bold;
+    }
+
+    /* ============ SUBSYSTEMS VIEW ============ */
+    .subsystems-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+    }
+
+    .subsystem-card {
+      background: var(--card);
+      border: 1px solid rgba(56, 189, 248, 0.15);
+      border-radius: 12px;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .subsystem-card:hover {
+      transform: translateY(-5px);
+      border-color: var(--primary);
+      box-shadow: 0 10px 30px rgba(56, 189, 248, 0.1);
+    }
+
+    .subsystem-card h3 {
+      font-size: 1.1rem;
+      margin-bottom: 10px;
+      color: var(--primary);
+    }
+
+    .subsystem-card .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      margin: 10px 0;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.warning {
+      background: var(--warning);
+    }
+
+    .status-dot.danger {
+      background: var(--danger);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* ============ DETAIL VIEW (METRICS) ============ */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 30px;
+    }
+
+    .metric-card {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      border-left: 5px solid var(--primary);
+      border-radius: 10px;
+      padding: 20px;
+      transition: all 0.3s ease;
+    }
+
+    .metric-card.alarm {
+      border-left-color: var(--danger);
+      animation: blink-alarm 1s infinite;
+    }
+
+    .metric-card.warning {
+      border-left-color: var(--warning);
+    }
+
+    @keyframes blink-alarm {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+      50% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+    }
+
+    .metric-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+
+    .metric-value {
+      font-size: 2.5rem;
+      font-weight: 900;
+      color: var(--primary);
+      margin: 5px 0;
+    }
+
+    .metric-unit {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .metric-status {
+      font-size: 0.8rem;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* ============ CHART VIEW ============ */
+    .chart-section {
+      background: linear-gradient(135deg, #0f172a 0%, #1a1f3a 100%);
+      border: 1px solid rgba(56, 189, 248, 0.1);
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+
+    .chart-section h3 {
+      color: var(--primary);
+      margin-bottom: 15px;
+      font-size: 1.1rem;
+    }
+
+    .chart-viewport {
+      background: #0f172a;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      overflow: auto;
+      position: relative;
+      height: 400px;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .chart-viewport::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    .chart-viewport::-webkit-scrollbar-track {
+      background: #020617;
+    }
+
+    .chart-viewport::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 5px;
+    }
+
+    .chart-viewport::-webkit-scrollbar-thumb:hover {
+      background: var(--primary);
+    }
+
+    /* ============ BUTTONS ============ */
     .btn {
-      width: 100%; padding: 12px; border: none; border-radius: 8px;
-      font-weight: bold; cursor: pointer; transition: 0.2s; margin-top: 10px;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 0.9rem;
+      margin-right: 10px;
+      margin-top: 10px;
     }
-    .btn-primary { background: var(--primary); color: #000; }
-    .btn-secondary { background: #334155; color: #fff; }
 
-    .alarm-red { animation: blink-red 1s infinite; border-left-color: var(--danger) !important; }
-    @keyframes blink-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 100% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); } }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary) 0%, #0ea5e9 100%);
+      color: #000;
+    }
+
+    .btn-primary:hover {
+      transform: scale(1.05);
+      box-shadow: 0 8px 20px rgba(56, 189, 248, 0.3);
+    }
+
+    .btn-secondary {
+      background: #334155;
+      color: var(--text);
+    }
+
+    .btn-secondary:hover {
+      background: #475569;
+    }
+
+    .btn-back {
+      background: rgba(52, 65, 85, 0.5);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--text);
+      padding: 10px 15px;
+    }
+
+    .btn-back:hover {
+      background: rgba(56, 189, 248, 0.1);
+      border-color: var(--primary);
+    }
+
+    /* ============ RESPONSIVE ============ */
+    @media (max-width: 768px) {
+      .navbar {
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .navbar h1 {
+        font-size: 1.3rem;
+      }
+
+      .systems-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .container {
+        padding: 15px;
+      }
+    }
   </style>
 </head>
 <body>
 
-<div id="status-bar"></div>
-
-<div id="view-home" class="home-container">
-  <h1 style="font-size: 2.5rem; color: var(--primary); text-shadow: 0 0 15px rgba(56,189,248,0.3);">HỆ THỐNG SCADA TRỰC TUYẾN</h1>
-  <div class="station-grid">
-    <div class="station-card" onclick="switchPage('view-detail')">
-      <div style="font-size: 60px; margin-bottom: 15px;">📊</div>
-      <h2 style="margin: 0;">Trạm Giám Sát 01</h2>
-      <p style="font-size: 13px; color: #94a3b8; margin: 15px 0;">Hỗ trợ lưu trữ 24h & Scrollbar X-Y</p>
-      <button class="btn btn-primary">TRUY CẬP NGAY</button>
-    </div>
-    <div class="station-card locked">
-      <div style="font-size: 60px; margin-bottom: 15px;">🔒</div>
-      <h2 style="margin: 0;">Trạm Giám Sát 02</h2>
-      <button class="btn btn-secondary" disabled>ĐANG BẢO TRÌ</button>
-    </div>
+<!-- NAVBAR -->
+<div class="navbar">
+  <h1>🎛️ SCADA MONITORING SYSTEM</h1>
+  <div class="navbar-right">
+    <div class="live-clock" id="liveClock">--:--:--</div>
+    <div class="sync-status" id="syncStatus">Đang kết nối...</div>
   </div>
 </div>
 
-<div id="view-detail" class="detail-view">
-  <div class="top-nav">
-    <button class="btn btn-secondary" style="width: auto;" onclick="switchPage('view-home')">⬅ QUAY LẠI</button>
-    <div style="text-align: right;">
-      <div id="live-clock" style="font-family: monospace; font-size: 1.3rem; color: var(--primary);">--:--:--</div>
-      <small id="sync-status" style="color: #64748b;">Đang đồng bộ dữ liệu Cloud...</small>
+<!-- BREADCRUMB -->
+<div class="breadcrumb" id="breadcrumb"></div>
+
+<!-- MAIN CONTAINER -->
+<div class="container">
+  
+  <!-- VIEW 1: HOME (Hệ thống chính) -->
+  <div id="view-home" class="view active">
+    <h2 style="margin-bottom: 20px; color: var(--primary);">Danh Sách Hệ Thống</h2>
+    <div class="systems-grid" id="systemsGrid"></div>
+  </div>
+
+  <!-- VIEW 2: SUBSYSTEMS (Hệ thống con) -->
+  <div id="view-subsystems" class="view">
+    <h2 style="margin-bottom: 20px; color: var(--primary);" id="subsystemsTitle">Hệ Thống Con</h2>
+    <div class="subsystems-grid" id="subsystemsGrid"></div>
+  </div>
+
+  <!-- VIEW 3: DETAILS (Chi tiết chỉ số) -->
+  <div id="view-details" class="view">
+    <h2 style="margin-bottom: 20px; color: var(--primary);" id="detailsTitle">Chi Tiết Giám Sát</h2>
+    
+    <!-- METRICS CARDS -->
+    <div class="metrics-grid" id="metricsGrid"></div>
+
+    <!-- CHART SECTION -->
+    <div class="chart-section">
+      <h3>📊 Biểu Đồ Theo Dõi 24H</h3>
+      <div class="chart-viewport">
+        <div class="chart-wrapper">
+          <canvas id="chartCanvas"></canvas>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="scrollChartToEnd()">📍 BÁM SÁT HIỆN TẠI</button>
     </div>
   </div>
 
-  <div class="main-layout">
-    <div class="sidebar">
-      <div class="monitor-item" id="card-temp">
-        <small style="color:#94a3b8; font-weight: bold;">TEMPERATURE</small>
-        <div class="val-display"><span id="val-temp">--</span><span class="unit">°C</span></div>
-      </div>
-      <div class="monitor-item" style="border-left-color: var(--success);">
-        <small style="color:#94a3b8; font-weight: bold;">HUMIDITY</small>
-        <div class="val-display"><span id="val-hum">--</span><span class="unit">%</span></div>
-      </div>
-      <button class="btn btn-primary" onclick="scrollToEnd()">BÁM SÁT HIỆN TẠI</button>
-    </div>
-
-    <div class="chart-viewport" id="viewport">
-      <div class="chart-wrapper">
-        <canvas id="hmiChart"></canvas>
-      </div>
-    </div>
-  </div>
 </div>
 
+<!-- FIREBASE SCRIPTS -->
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
+<!-- MAIN SCRIPT -->
 <script>
+  // ============ FIREBASE CONFIG ============
   const firebaseConfig = {
     apiKey: "AIzaSyBWRpQCnDWV5YQpoXZ_o7aqfGdv_7yUT38",
     authDomain: "wed-demo-d236a.firebaseapp.com",
@@ -143,98 +472,340 @@
     messagingSenderId: "410178635616",
     appId: "1:410178635616:web:c4d513a888176847198005"
   };
+
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  function switchPage(id) {
-    document.getElementById('view-home').style.display = (id === 'view-home' ? 'block' : 'none');
-    document.getElementById('view-detail').style.display = (id === 'view-detail' ? 'flex' : 'none');
-    if(id === 'view-detail') setTimeout(scrollToEnd, 300);
-  }
-
-  const ctx = document.getElementById('hmiChart').getContext('2d');
-  const hmiChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      datasets: [
-        { 
-          label: 'Nhiệt độ (°C)', data: [], 
-          borderColor: '#38bdf8', 
-          backgroundColor: 'transparent', // BỎ ĐỘ ÁNH XẠ THEO YÊU CẦU
-          borderWidth: 3, pointRadius: 2, tension: 0.3, fill: false 
-        },
-        { 
-          label: 'Độ ẩm (%)', data: [], 
-          borderColor: '#10b981', 
-          backgroundColor: 'transparent', // BỎ ĐỘ ÁNH XẠ THEO YÊU CẦU
-          borderWidth: 3, pointRadius: 2, tension: 0.3, fill: false 
-        }
-      ]
+  // ============ DATA STRUCTURE ============
+  const systemsHierarchy = {
+    sys1: {
+      name: "Hệ Thống Nhiệt Độ & Độ Ẩm",
+      icon: "🌡️",
+      description: "Giám sát nhiệt độ và độ ẩm môi trường",
+      subsystems: {
+        sub1: { name: "Khu Vực Máy Chủ", metrics: ["temp", "humidity"] },
+        sub2: { name: "Khu Vực Lạnh", metrics: ["temp", "humidity"] }
+      }
     },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      scales: {
-        x: { 
-          type: 'time', 
-          time: { unit: 'minute', displayFormats: { minute: 'HH:mm' } },
-          grid: { color: 'rgba(255,255,255,0.05)' }
-          // Bỏ thuộc tính min để biểu đồ tự giãn theo dữ liệu 24h
-        },
-        y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.05)' } }
-      },
-      plugins: {
-        tooltip: { mode: 'index', intersect: false }
+    sys2: {
+      name: "Hệ Thống Điện",
+      icon: "⚡",
+      description: "Quản lý và giám sát tiêu thụ điện",
+      subsystems: {
+        sub3: { name: "UPS Chính", metrics: ["voltage", "current"] },
+        sub4: { name: "PDU Phụ", metrics: ["voltage", "current"] }
+      }
+    },
+    sys3: {
+      name: "Hệ Thống Máy Chủ",
+      icon: "🖥️",
+      description: "Theo dõi hiệu suất máy chủ",
+      subsystems: {
+        sub5: { name: "Server 01", metrics: ["cpu", "memory"] },
+        sub6: { name: "Server 02", metrics: ["cpu", "memory"] }
       }
     }
-  });
+  };
 
-  function scrollToEnd() {
-    const v = document.getElementById('viewport');
-    v.scrollLeft = v.scrollWidth;
+  // ============ STATE MANAGEMENT ============
+  let currentView = 'home';
+  let currentSystem = null;
+  let currentSubsystem = null;
+  let chartInstance = null;
+  const MAX_DATA_POINTS = 1440; // 24 hours @ 1 point/min
+  const chartData = {
+    temp: [],
+    humidity: [],
+    voltage: [],
+    current: [],
+    cpu: [],
+    memory: []
+  };
+
+  // ============ CLOCK UPDATE ============
+  setInterval(() => {
+    document.getElementById('liveClock').innerText = new Date().toLocaleTimeString('vi-VN');
+  }, 1000);
+
+  // ============ BREADCRUMB NAVIGATION ============
+  function updateBreadcrumb() {
+    let html = '<span onclick="navigateTo(\'home\')">🏠 Trang Chủ</span>';
+    
+    if (currentSystem) {
+      html += ` / <span onclick="navigateTo('subsystems')">${systemsHierarchy[currentSystem].name}</span>`;
+    }
+    
+    if (currentSubsystem) {
+      html += ` / <span>${systemsHierarchy[currentSystem].subsystems[currentSubsystem].name}</span>`;
+    }
+    
+    document.getElementById('breadcrumb').innerHTML = html;
   }
 
-  db.ref("history").orderByChild("timestamp").limitToLast(1440).once("value", (snap) => {
-    const data = snap.val();
-    if (data) {
-      const sorted = Object.values(data).sort((a, b) => a.timestamp - b.timestamp);
-      sorted.forEach(item => {
-        hmiChart.data.datasets[0].data.push({ x: item.timestamp, y: item.temp });
-        hmiChart.data.datasets[1].data.push({ x: item.timestamp, y: item.hum });
-      });
-      hmiChart.update();
-      scrollToEnd();
-      document.getElementById("sync-status").innerText = "Đã tải dữ liệu 24h.";
+  // ============ NAVIGATION ============
+  function navigateTo(view, system = null, subsystem = null) {
+    // Hide all views
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    
+    currentView = view;
+    currentSystem = system;
+    currentSubsystem = subsystem;
+
+    updateBreadcrumb();
+
+    if (view === 'home') {
+      document.getElementById('view-home').classList.add('active');
+      renderSystems();
+    } else if (view === 'subsystems') {
+      document.getElementById('view-subsystems').classList.add('active');
+      renderSubsystems();
+    } else if (view === 'details') {
+      document.getElementById('view-details').classList.add('active');
+      renderDetails();
+      setTimeout(() => initChart(), 100);
     }
-  });
+  }
 
-  db.ref("data").on("value", (snap) => {
-    const val = snap.val();
-    if (val) {
-      const now = new Date().getTime();
-      const t = parseFloat(val.temp);
-      const h = parseFloat(val.hum);
+  // ============ RENDER SYSTEMS ============
+  function renderSystems() {
+    const grid = document.getElementById('systemsGrid');
+    grid.innerHTML = '';
 
-      document.getElementById("val-temp").innerText = t;
-      document.getElementById("val-hum").innerText = h;
+    Object.keys(systemsHierarchy).forEach(sysKey => {
+      const sys = systemsHierarchy[sysKey];
+      const subsysCount = Object.keys(sys.subsystems).length;
 
-      if(t > 45) document.getElementById("card-temp").classList.add("alarm-red");
-      else document.getElementById("card-temp").classList.remove("alarm-red");
+      grid.innerHTML += `
+        <div class="system-card" onclick="navigateTo('subsystems', '${sysKey}')">
+          <div class="system-icon">${sys.icon}</div>
+          <h2>${sys.name}</h2>
+          <p>${sys.description}</p>
+          <div class="subsystem-count">📦 ${subsysCount} hệ thống con</div>
+        </div>
+      `;
+    });
+  }
 
-      hmiChart.data.datasets[0].data.push({ x: now, y: t });
-      hmiChart.data.datasets[1].data.push({ x: now, y: h });
+  // ============ RENDER SUBSYSTEMS ============
+  function renderSubsystems() {
+    const grid = document.getElementById('subsystemsGrid');
+    const sys = systemsHierarchy[currentSystem];
+    
+    document.getElementById('subsystemsTitle').innerText = `${sys.name} - Danh Sách Hệ Thống Con`;
+    grid.innerHTML = '';
 
-      // CẬP NHẬT KHOẢNG TRỐNG TƯƠNG LAI MÀ KHÔNG GIỚI HẠN QUÁ KHỨ
-      const futureGap = 5 * 60 * 1000; // Để trống 5 phút tương lai
-      hmiChart.options.scales.x.max = now + futureGap;
+    Object.keys(sys.subsystems).forEach(subKey => {
+      const sub = sys.subsystems[subKey];
+      grid.innerHTML += `
+        <div class="subsystem-card" onclick="navigateTo('details', '${currentSystem}', '${subKey}')">
+          <h3>${sub.name}</h3>
+          <div class="status">
+            <div class="status-dot"></div>
+            <span>Hoạt động bình thường</span>
+          </div>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 12px;">
+            📊 ${sub.metrics.length} chỉ số theo dõi
+          </div>
+          <button class="btn btn-primary" style="width: 100%; margin-top: 12px;">Chi Tiết</button>
+        </div>
+      `;
+    });
+  }
 
-      hmiChart.update('none');
-      
-      const v = document.getElementById('viewport');
-      if (v.scrollLeft + v.clientWidth >= v.scrollWidth - 150) scrollToEnd();
+  // ============ RENDER DETAILS & METRICS ============
+  function renderDetails() {
+    const sys = systemsHierarchy[currentSystem];
+    const sub = sys.subsystems[currentSubsystem];
+    
+    document.getElementById('detailsTitle').innerText = `${sub.name} - Chi Tiết Giám Sát`;
+
+    const grid = document.getElementById('metricsGrid');
+    grid.innerHTML = '';
+
+    const metricsInfo = {
+      temp: { label: 'Nhiệt Độ', unit: '°C', icon: '🌡️', min: 15, max: 35 },
+      humidity: { label: 'Độ Ẩm', unit: '%', icon: '💧', min: 30, max: 80 },
+      voltage: { label: 'Điện Áp', unit: 'V', icon: '⚡', min: 220, max: 240 },
+      current: { label: 'Dòng Điện', unit: 'A', icon: '🔌', min: 0, max: 100 },
+      cpu: { label: 'CPU', unit: '%', icon: '⚙️', min: 0, max: 100 },
+      memory: { label: 'RAM', unit: '%', icon: '🧠', min: 0, max: 100 }
+    };
+
+    sub.metrics.forEach(metric => {
+      const info = metricsInfo[metric];
+      grid.innerHTML += `
+        <div class="metric-card" id="metric-${metric}">
+          <div class="metric-label">${info.icon} ${info.label}</div>
+          <div class="metric-value" id="value-${metric}">--</div>
+          <div class="metric-unit">${info.unit}</div>
+          <div class="metric-status">
+            <small id="status-${metric}">Đang tải dữ liệu...</small>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  // ============ UPDATE METRICS FROM FIREBASE ============
+  function updateMetrics() {
+    db.ref('data').on('value', (snap) => {
+      const data = snap.val();
+      if (data) {
+        updateMetricCard('temp', data.temp, 15, 35);
+        updateMetricCard('humidity', data.hum, 30, 80);
+        
+        // Add to chart data
+        const now = new Date().getTime();
+        chartData.temp.push({ x: now, y: parseFloat(data.temp) });
+        chartData.humidity.push({ x: now, y: parseFloat(data.hum) });
+
+        // Keep only last 1440 points
+        if (chartData.temp.length > MAX_DATA_POINTS) {
+          chartData.temp.shift();
+          chartData.humidity.shift();
+        }
+
+        document.getElementById('syncStatus').innerText = '✅ Đã cập nhật';
+      }
+    });
+  }
+
+  function updateMetricCard(metric, value, min, max) {
+    const el = document.getElementById(`value-${metric}`);
+    const card = document.getElementById(`metric-${metric}`);
+    const status = document.getElementById(`status-${metric}`);
+
+    if (!el) return;
+
+    const numValue = parseFloat(value);
+    el.innerText = numValue.toFixed(1);
+
+    // Update status
+    card.classList.remove('alarm', 'warning');
+    if (numValue > max) {
+      card.classList.add('alarm');
+      status.innerText = '🔴 CẢNH BÁO: Vượt quá giới hạn';
+    } else if (numValue > max - 5) {
+      card.classList.add('warning');
+      status.innerText = '🟡 CẢNH CÁO: Gần đạt giới hạn';
+    } else {
+      status.innerText = '🟢 Bình thường';
     }
-  });
+  }
 
-  setInterval(() => { document.getElementById("live-clock").innerText = new Date().toLocaleTimeString(); }, 1000);
+  // ============ CHART INITIALIZATION ============
+  function initChart() {
+    const canvas = document.getElementById('chartCanvas');
+    if (!canvas) return;
+
+    if (chartInstance) {
+      chartInstance.destroy();
+    }
+
+    const ctx = canvas.getContext('2d');
+    chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        datasets: [
+          {
+            label: 'Nhiệt độ (°C)',
+            data: chartData.temp,
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.05)',
+            borderWidth: 3,
+            pointRadius: 1,
+            pointBackgroundColor: '#38bdf8',
+            tension: 0.3,
+            fill: false
+          },
+          {
+            label: 'Độ ẩm (%)',
+            data: chartData.humidity,
+            borderColor: '#10b981',
+            backgroundColor: 'rgba(16, 185, 129, 0.05)',
+            borderWidth: 3,
+            pointRadius: 1,
+            pointBackgroundColor: '#10b981',
+            tension: 0.3,
+            fill: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            type: 'time',
+            time: {
+              unit: 'minute',
+              displayFormats: { minute: 'HH:mm' }
+            },
+            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+          },
+          y: {
+            min: 0,
+            max: 100,
+            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+          }
+        },
+        plugins: {
+          legend: {
+            labels: { color: 'var(--text-muted)', boxWidth: 12 }
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            borderColor: 'var(--primary)',
+            borderWidth: 1,
+            titleColor: 'var(--primary)'
+          }
+        }
+      }
+    });
+  }
+
+  function scrollChartToEnd() {
+    const viewport = document.querySelector('.chart-viewport');
+    if (viewport) {
+      viewport.scrollLeft = viewport.scrollWidth;
+    }
+  }
+
+  // ============ LOAD HISTORY DATA ============
+  function loadHistoryData() {
+    db.ref('history').orderByChild('timestamp').limitToLast(1440).once('value', (snap) => {
+      const data = snap.val();
+      if (data) {
+        const sorted = Object.values(data).sort((a, b) => a.timestamp - b.timestamp);
+        chartData.temp = [];
+        chartData.humidity = [];
+        
+        sorted.forEach(item => {
+          chartData.temp.push({ x: item.timestamp, y: item.temp });
+          chartData.humidity.push({ x: item.timestamp, y: item.hum });
+        });
+
+        if (chartInstance) {
+          chartInstance.data.datasets[0].data = chartData.temp;
+          chartInstance.data.datasets[1].data = chartData.humidity;
+          chartInstance.update();
+          scrollChartToEnd();
+        }
+
+        document.getElementById('syncStatus').innerText = '✅ Đã tải dữ liệu 24h';
+      }
+    });
+  }
+
+  // ============ INITIALIZATION ============
+  window.addEventListener('load', () => {
+    renderSystems();
+    updateMetrics();
+    loadHistoryData();
+  });
 </script>
+
 </body>
 </html>
