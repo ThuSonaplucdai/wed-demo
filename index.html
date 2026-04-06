@@ -1,291 +1,165 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jaguar Intelligent Control System</title>
-    
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<meta charset="UTF-8">
+<title>SCADA SYSTEM FULL</title>
 
-    <style>
-        :root {
-            --hmi-bg: #d1d5db;
-            --hmi-panel: #1f2937;
-            --hmi-blue: #2563eb;
-            --hmi-green: #16a34a;
-            --hmi-red: #dc2626;
-            --hmi-text: #111827;
-        }
+<style>
+body {
+  background: #0a1a2f;
+  color: #fff;
+  text-align: center;
+  font-family: Arial;
+}
 
-        body {
-            background-color: #0f172a;
-            font-family: 'Segoe UI', sans-serif;
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            color: white;
-        }
+h2 { color: cyan; }
 
-        /* Khung máy vật lý */
-        .hmi-physical-frame {
-            background-color: #000;
-            padding: 20px;
-            border-radius: 40px;
-            box-shadow: 0 0 50px rgba(0,0,0,0.5);
-            border: 4px solid #334155;
-            width: 900px;
-        }
+.panel {
+  margin: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
 
-        /* Màn hình hiển thị */
-        .hmi-screen {
-            background-color: var(--hmi-bg);
-            border-radius: 10px;
-            overflow: hidden;
-            color: var(--hmi-text);
-            height: 550px;
-            position: relative;
-        }
+button {
+  padding: 10px 20px;
+  margin-bottom: 10px;
+  background: orange;
+  border: none;
+  cursor: pointer;
+}
 
-        /* Thanh trạng thái trên cùng */
-        .status-bar {
-            background: linear-gradient(to bottom, #9ca3af, #6b7280);
-            padding: 5px 15px;
-            display: flex;
-            justify-content: space-between;
-            font-weight: bold;
-            font-size: 14px;
-            border-bottom: 2px solid #4b5563;
-        }
+svg {
+  background: #111;
+  border: 2px solid #333;
+}
 
-        /* Nội dung các trang */
-        .page { display: none; height: 440px; padding: 15px; }
-        .page.active { display: block; }
+/* Tank */
+.tank {
+  fill: #333;
+  stroke: white;
+  stroke-width: 2;
+}
 
-        /* --- TRANG CHỦ (HOME) --- */
-        .home-grid { display: grid; grid-template-columns: 300px 1fr; gap: 15px; height: 100%; }
-        
-        .param-list { display: flex; flex-direction: column; gap: 10px; }
-        .param-item {
-            background: white;
-            border: 1px solid #9ca3af;
-            padding: 10px;
-            display: flex;
-            justify-content: space-between;
-            font-family: 'Courier New', monospace;
-            font-weight: bold;
-            font-size: 18px;
-        }
-        .val-blue { color: var(--hmi-blue); }
+/* Water */
+.water {
+  fill: #00bfff;
+  transition: all 0.5s;
+}
 
-        .diagram-container {
-            border: 2px solid #6b7280;
-            border-radius: 8px;
-            background: #f3f4f6;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
+/* Pipe */
+.pipe {
+  stroke-width: 12;
+  fill: none;
+}
 
-        .diagram-img { max-width: 90%; opacity: 0.8; }
+.cold {
+  stroke: #00bfff;
+  stroke-dasharray: 10;
+  animation: flow 1s linear infinite;
+}
 
-        /* --- TRANG MENU --- */
-        .menu-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 25px;
-            padding: 40px;
-        }
-        .menu-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        .menu-item:hover { transform: scale(1.1); }
-        .menu-icon {
-            width: 80px;
-            height: 80px;
-            background: white;
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 40px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin-bottom: 10px;
-            border: 1px solid #ccc;
-        }
-        .menu-label { font-weight: bold; font-size: 14px; text-align: center; }
+.hot {
+  stroke: red;
+  stroke-dasharray: 10;
+  animation: flow 1s linear infinite reverse;
+}
 
-        /* --- TRANG MORE MONITORING --- */
-        .more-list {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-top: 20px;
-        }
-        .more-item {
-            border-bottom: 2px solid #9ca3af;
-            padding: 15px 5px;
-            display: flex;
-            justify-content: space-between;
-            font-weight: bold;
-            font-size: 20px;
-        }
+@keyframes flow {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: 30; }
+}
 
-        /* Hệ thống nút bấm vật lý */
-        .physical-controls {
-            display: flex;
-            justify-content: space-around;
-            padding: 25px 0 10px 0;
-        }
-        .p-btn {
-            width: 120px;
-            height: 45px;
-            border-radius: 25px;
-            border: none;
-            color: white;
-            font-weight: bold;
-            font-size: 16px;
-            cursor: pointer;
-            box-shadow: 0 4px #000;
-            text-transform: uppercase;
-        }
-        .p-btn:active { transform: translateY(4px); box-shadow: 0 0 #000; }
-        .btn-blue { background-color: var(--hmi-blue); }
-        .btn-gray { background-color: #4b5563; }
-        .btn-green { background-color: var(--hmi-green); }
-        .btn-red { background-color: var(--hmi-red); }
+/* Pump */
+.pump {
+  fill: green;
+  transition: 0.3s;
+}
 
-        .brand-footer {
-            text-align: center;
-            padding-top: 15px;
-            font-size: 24px;
-            font-weight: bold;
-            color: #fff;
-        }
-    </style>
+.pump.off {
+  fill: gray;
+}
+
+/* Valve */
+.valve {
+  fill: yellow;
+}
+</style>
+
 </head>
 <body>
 
-    <div class="hmi-physical-frame">
-        <div class="hmi-screen">
-            <div class="status-bar">
-                <span>捷豹 JAGUAR</span>
-                <span id="current-time">2026-04-06 22:11:57</span>
-                <span>📶 4G Online</span>
-            </div>
+<h2>🔥 SCADA MONITORING SYSTEM</h2>
 
-            <div id="page-home" class="page active">
-                <h2 style="text-align:center; margin-top:0;">Intelligent Control System</h2>
-                <div class="home-grid">
-                    <div class="param-list">
-                        <div class="param-item">Pressure(MPa): <span class="val-blue" id="h-p">--</span></div>
-                        <div class="param-item">Temp(°C): <span class="val-blue" id="h-t">--</span></div>
-                        <div class="param-item">Voltage(V): <span class="val-blue" id="h-v">--</span></div>
-                        <div class="param-item">Freq(Hz): <span class="val-blue" id="h-f">--</span></div>
-                    </div>
-                    <div class="diagram-container">
-                        <img src="https://i.imgur.com/your-diagram-placeholder.png" class="diagram-img" alt="Compressor Diagram">
-                        <div style="font-size: 12px; font-weight: bold;">[ FLOW DIAGRAM SIMULATION ]</div>
-                    </div>
-                </div>
-            </div>
+<div class="panel">
+  <div>🌡 Temp: <span id="temp">25</span> °C</div>
+  <div>💧 Level: <span id="level">50</span> %</div>
+  <div>⚡ Pressure: <span id="pressure">1.2</span> bar</div>
+</div>
 
-            <div id="page-menu" class="page">
-                <h2 style="text-align:center; border-bottom: 2px solid #9ca3af; padding-bottom: 10px;">System Menu</h2>
-                <div class="menu-grid">
-                    <div class="menu-item" onclick="switchPage('page-more')">
-                        <div class="menu-icon">📊</div>
-                        <div class="menu-label">Monitoring Data</div>
-                    </div>
-                    <div class="menu-item">
-                        <div class="menu-icon">🔧</div>
-                        <div class="menu-label">Maintenance</div>
-                    </div>
-                    <div class="menu-item">
-                        <div class="menu-icon">⚙️</div>
-                        <div class="menu-label">Factory Parameters</div>
-                    </div>
-                    <div class="menu-item">
-                        <div class="menu-icon">⚠️</div>
-                        <div class="menu-label">Fault List</div>
-                    </div>
-                </div>
-            </div>
+<button onclick="togglePump()">ON / OFF PUMP</button>
 
-            <div id="page-more" class="page">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h2>More Monitoring Page</h2>
-                    <button onclick="switchPage('page-menu')" style="padding: 5px 15px; cursor: pointer;">Back</button>
-                </div>
-                <div class="more-list">
-                    <div class="more-item">Pressure: <span class="val-blue"><span id="m-p">--</span> MPa</span></div>
-                    <div class="more-item">Total Power: <span class="val-blue"><span id="m-pw">--</span> kWh</span></div>
-                    <div class="more-item">Machine Temp: <span class="val-blue"><span id="m-t">--</span> °C</span></div>
-                    <div class="more-item">Running Time: <span class="val-blue"><span id="m-rt">--</span> h</span></div>
-                    <div class="more-item">Frequency: <span class="val-blue"><span id="m-f">--</span> Hz</span></div>
-                    <div class="more-item">Total Time: <span class="val-blue"><span id="m-tt">--</span> h</span></div>
-                </div>
-            </div>
-        </div>
+<svg viewBox="0 0 1000 500">
 
-        <div class="physical-controls">
-            <button class="p-btn btn-blue" onclick="switchPage('page-home')">Menu</button>
-            <button class="p-btn btn-gray" onclick="switchPage('page-menu')">Reset</button>
-            <button class="p-btn btn-green">Start</button>
-            <button class="p-btn btn-red">Stop</button>
-        </div>
+  <!-- Tank -->
+  <rect x="400" y="120" width="200" height="260" rx="100" class="tank"/>
 
-        <div class="brand-footer">东亚机械 <small style="font-size: 12px;">301028.SZ</small></div>
-    </div>
+  <!-- Water -->
+  <rect id="water" x="400" y="250" width="200" height="130" class="water"/>
 
-    <script>
-        // --- CẤU HÌNH FIREBASE (Dựa trên thông tin đã có) ---
-        const firebaseConfig = {
-            databaseURL: "https://wed-demo-d236a-default-rtdb.firebaseio.com"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+  <!-- Pipes -->
+  <line id="pipe_in" x1="100" y1="250" x2="400" y2="250" class="pipe cold"/>
+  <line id="pipe_out" x1="600" y1="250" x2="900" y2="250" class="pipe hot"/>
 
-        // --- ĐIỀU HƯỚNG TRANG ---
-        function switchPage(id) {
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
-        }
+  <!-- Pump -->
+  <circle id="pump" cx="100" cy="250" r="40" class="pump"/>
+  <text x="80" y="255">P1</text>
 
-        // --- CẬP NHẬT DỮ LIỆU REALTIME ---
-        // Lấy từ node 'device'
-        db.ref('device').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if(data) {
-                // Trang chủ
-                document.getElementById('h-p').innerText = data.pressure || "0.00";
-                document.getElementById('h-t').innerText = data.temperature || "0";
-                document.getElementById('h-v').innerText = data.voltage || "0";
-                document.getElementById('h-f').innerText = data.frequency || "0.00";
+  <!-- Valve -->
+  <rect x="580" y="220" width="20" height="60" class="valve"/>
 
-                // Trang chi tiết
-                document.getElementById('m-p').innerText = data.pressure || "0.00";
-                document.getElementById('m-t').innerText = data.temperature || "0";
-                document.getElementById('m-f').innerText = data.frequency || "0.00";
-                document.getElementById('m-pw').innerText = data.total_power || "0";
-                document.getElementById('m-rt').innerText = data.running_time || "0";
-                document.getElementById('m-tt').innerText = data.total_time || "0";
-            }
-        });
+</svg>
 
-        // Cập nhật thời gian
-        setInterval(() => {
-            const now = new Date();
-            document.getElementById('current-time').innerText = now.toLocaleString();
-        }, 1000);
-    </script>
+<script>
+let temp = 25;
+let level = 50;
+let pressure = 1.2;
+let pumpOn = true;
+
+function togglePump() {
+  pumpOn = !pumpOn;
+  document.getElementById("pump").classList.toggle("off");
+
+  document.getElementById("pipe_in").style.animation = pumpOn ? "" : "none";
+  document.getElementById("pipe_out").style.animation = pumpOn ? "" : "none";
+}
+
+setInterval(() => {
+
+  if (pumpOn) {
+    level += Math.random() * 2;
+    pressure += Math.random() * 0.1;
+  } else {
+    level -= Math.random() * 1.5;
+    pressure -= Math.random() * 0.05;
+  }
+
+  temp += (Math.random() * 2 - 1);
+
+  level = Math.max(0, Math.min(100, level));
+  pressure = Math.max(0, pressure);
+
+  document.getElementById("temp").innerText = temp.toFixed(1);
+  document.getElementById("level").innerText = level.toFixed(0);
+  document.getElementById("pressure").innerText = pressure.toFixed(2);
+
+  let water = document.getElementById("water");
+  let height = level * 2.6;
+  water.setAttribute("y", 380 - height);
+  water.setAttribute("height", height);
+
+}, 1000);
+</script>
+
 </body>
 </html>
