@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ Thống SCADA Jaguar - Hoàn Chỉnh</title>
+    <title>Hệ Thống SCADA Jaguar - Bản Hoàn Thiện</title>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
@@ -34,9 +34,9 @@
         .page.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* Nút quay lại và Tiêu đề */
+        /* Navigation */
         .nav-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; width: 100%; }
-        .btn-back { background: #334155; border: none; color: white; padding: 10px 18px; border-radius: 8px; cursor: pointer; }
+        .btn-back { background: #334155; border: none; color: white; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         .btn-back:hover { background: #475569; }
 
         /* LỚP 1: MENU CHÍNH */
@@ -51,168 +51,144 @@
             font-weight: bold;
             cursor: pointer;
             transition: 0.3s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         }
         .main-card:hover { border-color: var(--accent); background: #26334d; transform: translateY(-3px); }
 
-        /* LỚP 2: CHI TIẾT NHIỆT ĐỘ & ĐIỆN NĂNG */
+        /* LỚP 2: CHI TIẾT GIÁM SÁT TỔNG */
         .stats-container { background: var(--card-bg); padding: 50px; border-radius: 20px; text-align: center; border-top: 4px solid var(--accent); }
         .big-val { font-size: 5.5rem; font-weight: 800; color: var(--accent); margin: 20px 0; }
         .unit { font-size: 1.5rem; color: #94a3b8; }
 
-        /* LỚP 2: DANH SÁCH HỆ THỐNG CON */
-        .sub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .mini-card { background: #334155; padding: 30px; border-radius: 12px; cursor: pointer; border: 2px dashed #475569; text-align: center; }
-        .mini-card:hover { border-color: #22c55e; background: #3f4e64; }
-
-        /* LỚP 3: GIAO DIỆN MÁY NÉN JAGUAR (MÔ PHỎNG THỰC TẾ) */
+        /* LỚP 3: GIAO DIỆN MÁY NÉN JAGUAR (DIGITAL TWIN) */
         .jg-machine-frame {
             background: var(--jg-gray);
             border: 10px solid #111;
             border-radius: 20px;
             color: var(--jg-dark);
             overflow: hidden;
-            max-width: 600px;
+            max-width: 550px;
             margin: auto;
             box-shadow: 0 20px 40px rgba(0,0,0,0.6);
         }
-        .jg-top-bar { background: #94a3b8; padding: 5px 15px; display: flex; justify-content: space-between; font-weight: bold; font-size: 12px; }
-        .jg-content { height: 350px; padding: 15px; position: relative; }
+        .jg-top-bar { background: #94a3b8; padding: 6px 15px; display: flex; justify-content: space-between; font-weight: bold; font-size: 12px; border-bottom: 1px solid #64748b; }
+        .jg-content { height: 350px; padding: 15px; position: relative; background: #cbd5e1; }
         .jg-screen { display: none; }
         .jg-screen.active { display: block; }
 
         /* Màn hình 1: Home (Ảnh 1) */
         .jg-data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .jg-box { background: white; border: 1px solid #64748b; padding: 10px; display: flex; justify-content: space-between; font-weight: bold; }
+        .jg-box { background: white; border: 1px solid #64748b; padding: 10px; display: flex; justify-content: space-between; font-weight: bold; font-family: monospace; }
         .jg-blue { color: #0284c7; }
 
-        /* Màn hình 2: Menu (Ảnh 2 - Biểu tượng ứng dụng) */
+        /* Màn hình 2: Menu (Ảnh 2) */
         .jg-app-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 10px; }
         .jg-app { display: flex; flex-direction: column; align-items: center; cursor: pointer; }
-        .jg-icon { width: 65px; height: 65px; background: white; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 30px; margin-bottom: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: 1px solid #ccc; }
-        .jg-label { font-size: 11px; font-weight: bold; text-align: center; }
+        .jg-icon { width: 60px; height: 60px; background: white; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 28px; border: 1px solid #ccc; box-shadow: 0 3px 5px rgba(0,0,0,0.1); }
+        .jg-label { font-size: 11px; font-weight: bold; text-align: center; margin-top: 5px; }
 
-        /* Màn hình 3: More Monitoring (Ảnh 3) */
-        .jg-list-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #ddd; font-weight: bold; }
+        /* Màn hình 3: More Data (Ảnh 3) */
+        .jg-list-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #94a3b8; font-weight: bold; }
 
-        /* Nút bấm vật lý dưới màn hình */
+        /* Nút bấm vật lý */
         .jg-physical-btns { display: flex; border-top: 2px solid #111; }
-        .p-btn { flex: 1; padding: 15px; text-align: center; color: white; cursor: pointer; border: 1px solid #111; font-weight: bold; font-size: 13px; }
+        .p-btn { flex: 1; padding: 15px; text-align: center; color: white; cursor: pointer; border: 1px solid #111; font-weight: bold; font-size: 12px; transition: 0.1s; }
+        .p-btn:active { filter: brightness(1.2); }
     </style>
 </head>
 <body>
 
     <div id="layer1" class="page active">
-        <h1 style="margin-bottom: 40px;">HỆ THỐNG GIÁM SÁT TRUNG TÂM</h1>
+        <h1 style="text-align:center; margin-bottom:40px;">HỆ THỐNG GIÁM SÁT TRUNG TÂM</h1>
         <div class="main-grid">
-            <div class="main-card" style="border-left: 8px solid #ef4444;" onclick="showPage('page-temp')">1. GIÁM SÁT NHIỆT ĐỘ</div>
-            <div class="main-card" style="border-left: 8px solid #f59e0b;" onclick="showPage('page-power')">2. ĐIỆN NĂNG TIÊU THỤ</div>
-            <div class="main-card" style="border-left: 8px solid #3b82f6;" onclick="showPage('page-sub-list')">3. HỆ THỐNG CON</div>
+            <div class="main-card" style="border-left: 8px solid #ef4444;" onclick="showPage('page-temp-tong')">1. GIÁM SÁT NHIỆT ĐỘ HỆ THỐNG</div>
+            <div class="main-card" style="border-left: 8px solid #f59e0b;" onclick="showPage('page-power-tong')">2. ĐIỆN NĂNG TIÊU THỤ</div>
+            <div class="main-card" style="border-left: 8px solid #3b82f6;" onclick="showPage('page-sub-list')">3. HỆ THỐNG MÁY CON (JAGUAR)</div>
         </div>
     </div>
 
-    <div id="page-temp" class="page">
+    <div id="page-temp-tong" class="page">
         <div class="nav-header">
             <button class="btn-back" onclick="showPage('layer1')">← QUAY LẠI</button>
-            <h2>NHIỆT ĐỘ HỆ THỐNG</h2>
+            <h2>NHIỆT ĐỘ GIÁM SÁT</h2>
         </div>
         <div class="stats-container">
-            <p>Dữ liệu từ cảm biến tổng</p>
-            <div class="big-val"><span id="val-temp-main">--</span><span class="unit">°C</span></div>
-            <p style="color: #22c55e;">Trạng thái: Bình thường</p>
+            <p>Nhiệt độ hệ thống (Node: data/temp)</p>
+            <div class="big-val"><span id="val-temp-data">--</span><span class="unit">°C</span></div>
+            <p style="color: #22c55e;">Trạng thái: Đang hoạt động</p>
         </div>
     </div>
 
-    <div id="page-power" class="page">
+    <div id="page-power-tong" class="page">
         <div class="nav-header">
             <button class="btn-back" onclick="showPage('layer1')">← QUAY LẠI</button>
-            <h2>ĐIỆN NĂNG TIÊU THỤ</h2>
+            <h2>ĐIỆN NĂNG TỔNG</h2>
         </div>
         <div class="stats-container">
-            <p>Tổng điện năng tiêu thụ (Node: Data)</p>
-            <div class="big-val"><span id="val-power-main">--</span><span class="unit">kWh</span></div>
-            <p>Thời gian vận hành: <span id="val-time-main">--</span> giờ</p>
+            <p>Điện năng tiêu thụ (Node: data/total_power)</p>
+            <div class="big-val"><span id="val-power-data">--</span><span class="unit">kWh</span></div>
         </div>
     </div>
 
     <div id="page-sub-list" class="page">
         <div class="nav-header">
             <button class="btn-back" onclick="showPage('layer1')">← QUAY LẠI</button>
-            <h2>HỆ THỐNG CON</h2>
+            <h2>DANH SÁCH THIẾT BỊ</h2>
         </div>
-        <div class="sub-grid">
-            <div class="mini-card" onclick="showPage('page-jaguar-ui')">
-                <h3 style="margin:0; color: var(--accent);">MÁY NÉN JAGUAR</h3>
-                <p style="font-size: 12px; margin-top:10px;">ID: JAG-01 | Nhấn để vào máy</p>
-            </div>
-            <div class="mini-card" style="opacity: 0.5; cursor: default;">
-                <h3 style="margin:0;">HỆ THỐNG NHỎ 2</h3>
-                <p style="font-size: 12px; margin-top:10px;">Chưa kết nối</p>
-            </div>
+        <div class="main-card" onclick="showPage('page-jaguar-ui')" style="background: #334155;">
+            [ID: JAG-01] MÁY NÉN KHÍ JAGUAR
         </div>
     </div>
 
     <div id="page-jaguar-ui" class="page">
         <div class="nav-header">
-            <button class="btn-back" onclick="showPage('page-sub-list')">← DANH SÁCH MÁY</button>
+            <button class="btn-back" onclick="showPage('page-sub-list')">← DANH SÁCH</button>
             <h3>JAGUAR CONTROL UNIT</h3>
         </div>
 
         <div class="jg-machine-frame">
             <div class="jg-top-bar">
                 <span>捷豹 JAGUAR</span>
-                <span>4G 📶 Online</span>
+                <span>📶 Online</span>
             </div>
 
             <div class="jg-content">
                 <div id="jg-home" class="jg-screen active">
                     <p style="text-align:center; font-weight:bold; margin-bottom:15px;">Intelligent Control System</p>
                     <div class="jg-data-grid">
-                        <div class="jg-box">P (MPa): <span class="jg-blue" id="jg-p1">--</span></div>
-                        <div class="jg-box">T (°C): <span class="jg-blue" id="jg-t1">--</span></div>
-                        <div class="jg-box">V (V): <span class="jg-blue" id="jg-v1">--</span></div>
-                        <div class="jg-box">Hz: <span class="jg-blue" id="jg-f1">--</span></div>
+                        <div class="jg-box">P(MPa): <span class="jg-blue" id="jg-p-val">--</span></div>
+                        <div class="jg-box">T(°C): <span class="jg-blue" id="jg-t-val">--</span></div>
+                        <div class="jg-box">V(V): <span class="jg-blue" id="jg-v-val">--</span></div>
+                        <div class="jg-box">Hz: <span class="jg-blue" id="jg-f-val">--</span></div>
                     </div>
-                    <div style="margin-top:20px; border:1px solid #94a3b8; height:120px; background:#e2e8f0; display:flex; align-items:center; justify-content:center; border-radius:5px">
-                        <small>[ Flow Diagram Active ]</small>
+                    <div style="margin-top:20px; border:1px solid #94a3b8; height:120px; background:#e2e8f0; display:flex; align-items:center; justify-content:center; border-radius:5px; font-size:12px; color:#64748b">
+                        [ Compressor Sơ đồ ]
                     </div>
                 </div>
 
                 <div id="jg-menu" class="jg-screen">
                     <p style="text-align:center; font-weight:bold; border-bottom:1px solid #94a3b8; padding-bottom:5px;">Menu</p>
                     <div class="jg-app-grid">
-                        <div class="jg-app" onclick="switchJaguar('jg-data')">
-                            <div class="jg-icon" style="color: #0ea5e9;">📊</div>
+                        <div class="jg-app" onclick="switchJaguar('jg-more')">
+                            <div class="jg-icon" style="color:#0ea5e9;">📊</div>
                             <div class="jg-label">Monitoring</div>
                         </div>
-                        <div class="jg-app">
-                            <div class="jg-icon" style="color: #ef4444;">🛠️</div>
-                            <div class="jg-label">Maintenance</div>
-                        </div>
-                        <div class="jg-app">
-                            <div class="jg-icon" style="color: #f59e0b;">⚙️</div>
-                            <div class="jg-label">Factory Para.</div>
-                        </div>
-                        <div class="jg-app">
-                            <div class="jg-icon" style="color: #dc2626;">⚠️</div>
-                            <div class="jg-label">Fault List</div>
-                        </div>
-                        <div class="jg-app">
-                            <div class="jg-icon" style="color: #3b82f6;">🕒</div>
-                            <div class="jg-label">Timing Start</div>
-                        </div>
+                        <div class="jg-app"><div class="jg-icon" style="color:#ef4444;">🛠️</div><div class="jg-label">Maintenance</div></div>
+                        <div class="jg-app"><div class="jg-icon" style="color:#f59e0b;">⚙️</div><div class="jg-label">Setting</div></div>
+                        <div class="jg-app"><div class="jg-icon" style="color:#dc2626;">⚠️</div><div class="jg-label">Fault</div></div>
+                        <div class="jg-app"><div class="jg-icon" style="color:#3b82f6;">🕒</div><div class="jg-label">Timing</div></div>
                     </div>
                 </div>
 
-                <div id="jg-data" class="jg-screen">
-                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #94a3b8; padding-bottom:5px;">
-                        <span style="font-weight:bold">More Monitoring page</span>
-                        <button onclick="switchJaguar('jg-menu')" style="font-size:10px">Back</button>
+                <div id="jg-more" class="jg-screen">
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid #94a3b8; padding-bottom:5px;">
+                        <span style="font-weight:bold;">Monitoring Data</span>
+                        <button onclick="switchJaguar('jg-menu')" style="font-size:10px;">Back</button>
                     </div>
                     <div style="margin-top:15px;">
-                        <div class="jg-list-item">Pressure: <span class="jg-blue"><span id="jg-p2">--</span> MPa</span></div>
-                        <div class="jg-list-item">Temperature: <span class="jg-blue"><span id="jg-t2">--</span> °C</span></div>
-                        <div class="jg-list-item">Host frequency: <span class="jg-blue"><span id="jg-f2">--</span> Hz</span></div>
-                        <div class="jg-list-item" style="border:none">Total power: <span class="jg-blue"><span id="jg-pw">--</span> kWh</span></div>
+                        <div class="jg-list-item">Pressure: <span class="jg-blue"><span id="jg-p-val2">--</span> MPa</span></div>
+                        <div class="jg-list-item">Machine Temp: <span class="jg-blue"><span id="jg-t-val2">--</span> °C</span></div>
+                        <div class="jg-list-item">Total Power: <span class="jg-blue"><span id="jg-pw-val">--</span> kWh</span></div>
                     </div>
                 </div>
             </div>
@@ -227,7 +203,7 @@
     </div>
 
     <script>
-        // Cấu hình Firebase
+        // --- CẤU HÌNH FIREBASE ---
         const firebaseConfig = {
             apiKey: "AIzaSyBWRpQCnDWV5YQpoXZ_o7aqfGdv_7yUT38",
             authDomain: "wed-demo-d236a.firebaseapp.com",
@@ -240,41 +216,43 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // Chuyển trang chính
+        // --- ĐIỀU HƯỚNG ---
         function showPage(id) {
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.getElementById(id).classList.add('active');
         }
 
-        // Chuyển màn hình trong máy Jaguar
         function switchJaguar(id) {
             document.querySelectorAll('.jg-screen').forEach(s => s.classList.remove('active'));
             document.getElementById(id).classList.add('active');
         }
 
-        // --- ĐỒNG BỘ DỮ LIỆU TỪ FIREBASE ---
+        // --- KẾT NỐI DỮ LIỆU REALTIME ---
 
-        // 1. Dữ liệu tổng quát (Node 'data')
-        db.ref('data').on('value', (s) => {
-            const d = s.val() || {};
-            document.getElementById('val-temp-main').innerText = d.temperature || "0";
-            document.getElementById('val-power-main').innerText = d.total_power || "0";
-            document.getElementById('val-time-main').innerText = d.run_time || "0";
+        // 1. NHIỆT ĐỘ GIÁM SÁT (Lấy từ data/temp)
+        db.ref('data').on('value', (snapshot) => {
+            const data = snapshot.val() || {};
+            document.getElementById('val-temp-data').innerText = data.temp || "0";
+            document.getElementById('val-power-data').innerText = data.total_power || "0";
         });
 
-        // 2. Dữ liệu máy Jaguar (Node 'device')
-        db.ref('device').on('value', (s) => {
-            const v = s.val() || {};
-            // Màn hình Home
-            document.getElementById('jg-p1').innerText = v.pressure || "0.00";
-            document.getElementById('jg-t1').innerText = v.temperature || "0";
-            document.getElementById('jg-v1').innerText = v.voltage || "0";
-            document.getElementById('jg-f1').innerText = v.frequency || "0.00";
-            // Màn hình More Monitoring
-            document.getElementById('jg-p2').innerText = v.pressure || "0.00";
-            document.getElementById('jg-t2').innerText = v.temperature || "0";
-            document.getElementById('jg-f2').innerText = v.frequency || "0.00";
-            document.getElementById('jg-pw').innerText = v.total_power || "0";
+        // 2. THÔNG SỐ MÁY JAGUAR (Lấy từ device/temperature)
+        db.ref('device').on('value', (snapshot) => {
+            const dev = snapshot.val() || {};
+            
+            // Nhiệt độ máy nén (Khác với nhiệt độ hệ thống giám sát)
+            const machineTemp = dev.temperature || "0";
+            
+            // Cập nhật lên màn hình Home (Lớp 3)
+            document.getElementById('jg-p-val').innerText = dev.pressure || "0.00";
+            document.getElementById('jg-t-val').innerText = machineTemp;
+            document.getElementById('jg-v-val').innerText = dev.voltage || "0";
+            document.getElementById('jg-f-val').innerText = dev.frequency || "0.0";
+            
+            // Cập nhật lên màn hình More Monitoring (Lớp 3)
+            document.getElementById('jg-p-val2').innerText = dev.pressure || "0.00";
+            document.getElementById('jg-t-val2').innerText = machineTemp;
+            document.getElementById('jg-pw-val').innerText = dev.total_power || "0";
         });
     </script>
 </body>
