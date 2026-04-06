@@ -1,810 +1,155 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SCADA ULTIMATE EDITION - HIERARCHICAL SYSTEM</title>
-  
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jaguar Control System</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    
-    :root {
-      --bg: #020617; 
-      --card: #1e293b; 
-      --primary: #38bdf8;
-      --success: #10b981; 
-      --warning: #f59e0b;
-      --danger: #ef4444; 
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
-    }
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #2c3e50; color: white; margin: 0; padding: 20px; }
+        .screen-container { max-width: 800px; margin: 20px auto; background: #ecf0f1; border: 10px solid #333; border-radius: 15px; color: #333; min-height: 500px; position: relative; overflow: hidden;}
+        
+        /* Header kiểu công nghiệp */
+        .header { background: #bdc3c7; padding: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #7f8c8d; }
+        .logo { font-weight: bold; color: #c0392b; font-size: 20px; }
 
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      overflow-x: hidden;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+        /* Các màn hình */
+        .screen { display: none; padding: 20px; height: 100%; }
+        .active { display: block; }
 
-    /* ============ NAVIGATION ============ */
-    .navbar {
-      background: linear-gradient(90deg, #0f172a 0%, #1e293b 100%);
-      padding: 15px 25px;
-      border-bottom: 2px solid var(--primary);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 4px 20px rgba(56, 189, 248, 0.1);
-    }
+        /* Ảnh 1: Màn hình vận hành chính */
+        .monitor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .data-box { background: #fff; border: 1px solid #95a5a6; padding: 10px; display: flex; justify-content: space-between; }
+        .value { color: #2980b9; font-weight: bold; font-family: 'Courier New', Courier, monospace; }
+        .diagram { text-align: center; margin-top: 20px; border: 1px solid #ddd; height: 150px; display: flex; align-items: center; justify-content: center; background: #f9f9f9; }
 
-    .navbar h1 {
-      font-size: 1.8rem;
-      color: var(--primary);
-      text-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
-    }
+        /* Ảnh 2: Menu tùy chọn */
+        .menu-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; text-align: center; }
+        .menu-item { background: #fff; padding: 15px; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.3s; }
+        .menu-item:hover { background: #dfe6e9; transform: translateY(-5px); }
+        .icon { font-size: 30px; margin-bottom: 10px; display: block; }
 
-    .navbar-right {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
+        /* Ảnh 3: Thông số chi tiết */
+        .detail-table { width: 100%; border-collapse: collapse; background: white; }
+        .detail-table td { border: 1px solid #bdc3c7; padding: 12px; }
+        .label { background: #f2f2f2; width: 40%; font-weight: bold; }
 
-    .live-clock {
-      font-family: monospace;
-      font-size: 1.2rem;
-      color: var(--primary);
-      font-weight: bold;
-    }
-
-    .sync-status {
-      font-size: 0.9rem;
-      color: var(--text-muted);
-    }
-
-    /* ============ BREADCRUMB ============ */
-    .breadcrumb {
-      background: var(--card);
-      padding: 12px 25px;
-      font-size: 0.9rem;
-      color: var(--text-muted);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    .breadcrumb span {
-      color: var(--primary);
-      cursor: pointer;
-      transition: 0.3s;
-    }
-
-    .breadcrumb span:hover {
-      color: #60d5ff;
-    }
-
-    /* ============ MAIN CONTAINER ============ */
-    .container {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px 25px;
-    }
-
-    /* ============ VIEWS ============ */
-    .view {
-      display: none;
-      animation: fadeIn 0.5s ease-in;
-    }
-
-    .view.active {
-      display: block;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* ============ HOME VIEW ============ */
-    .systems-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 25px;
-      margin-bottom: 30px;
-    }
-
-    .system-card {
-      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-      border: 2px solid rgba(56, 189, 248, 0.2);
-      border-radius: 15px;
-      padding: 25px;
-      cursor: pointer;
-      transition: all 0.4s ease;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .system-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.1), transparent);
-      transition: left 0.5s ease;
-    }
-
-    .system-card:hover::before {
-      left: 100%;
-    }
-
-    .system-card:hover {
-      transform: translateY(-8px);
-      border-color: var(--primary);
-      box-shadow: 0 15px 40px rgba(56, 189, 248, 0.15);
-    }
-
-    .system-icon {
-      font-size: 3rem;
-      margin-bottom: 15px;
-    }
-
-    .system-card h2 {
-      font-size: 1.3rem;
-      margin: 10px 0;
-      color: var(--primary);
-    }
-
-    .system-card p {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      margin: 10px 0;
-    }
-
-    .subsystem-count {
-      background: rgba(56, 189, 248, 0.1);
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 0.85rem;
-      margin-top: 12px;
-      color: var(--primary);
-      font-weight: bold;
-    }
-
-    /* ============ SUBSYSTEMS VIEW ============ */
-    .subsystems-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 20px;
-    }
-
-    .subsystem-card {
-      background: var(--card);
-      border: 1px solid rgba(56, 189, 248, 0.15);
-      border-radius: 12px;
-      padding: 20px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-
-    .subsystem-card:hover {
-      transform: translateY(-5px);
-      border-color: var(--primary);
-      box-shadow: 0 10px 30px rgba(56, 189, 248, 0.1);
-    }
-
-    .subsystem-card h3 {
-      font-size: 1.1rem;
-      margin-bottom: 10px;
-      color: var(--primary);
-    }
-
-    .subsystem-card .status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.9rem;
-      margin: 10px 0;
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--success);
-      animation: pulse 2s infinite;
-    }
-
-    .status-dot.warning {
-      background: var(--warning);
-    }
-
-    .status-dot.danger {
-      background: var(--danger);
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    /* ============ DETAIL VIEW (METRICS) ============ */
-    .metrics-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 20px;
-      margin-bottom: 30px;
-    }
-
-    .metric-card {
-      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-      border-left: 5px solid var(--primary);
-      border-radius: 10px;
-      padding: 20px;
-      transition: all 0.3s ease;
-    }
-
-    .metric-card.alarm {
-      border-left-color: var(--danger);
-      animation: blink-alarm 1s infinite;
-    }
-
-    .metric-card.warning {
-      border-left-color: var(--warning);
-    }
-
-    @keyframes blink-alarm {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-      50% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-    }
-
-    .metric-label {
-      font-size: 0.85rem;
-      color: var(--text-muted);
-      font-weight: 600;
-      margin-bottom: 8px;
-      text-transform: uppercase;
-    }
-
-    .metric-value {
-      font-size: 2.5rem;
-      font-weight: 900;
-      color: var(--primary);
-      margin: 5px 0;
-    }
-
-    .metric-unit {
-      font-size: 0.9rem;
-      color: var(--text-muted);
-    }
-
-    .metric-status {
-      font-size: 0.8rem;
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    /* ============ CHART VIEW ============ */
-    .chart-section {
-      background: linear-gradient(135deg, #0f172a 0%, #1a1f3a 100%);
-      border: 1px solid rgba(56, 189, 248, 0.1);
-      border-radius: 15px;
-      padding: 20px;
-      margin-bottom: 30px;
-    }
-
-    .chart-section h3 {
-      color: var(--primary);
-      margin-bottom: 15px;
-      font-size: 1.1rem;
-    }
-
-    .chart-viewport {
-      background: #0f172a;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      overflow: auto;
-      position: relative;
-      height: 400px;
-    }
-
-    .chart-wrapper {
-      position: relative;
-      width: 100%;
-      height: 100%;
-    }
-
-    .chart-viewport::-webkit-scrollbar {
-      width: 10px;
-      height: 10px;
-    }
-
-    .chart-viewport::-webkit-scrollbar-track {
-      background: #020617;
-    }
-
-    .chart-viewport::-webkit-scrollbar-thumb {
-      background: #334155;
-      border-radius: 5px;
-    }
-
-    .chart-viewport::-webkit-scrollbar-thumb:hover {
-      background: var(--primary);
-    }
-
-    /* ============ BUTTONS ============ */
-    .btn {
-      padding: 12px 20px;
-      border: none;
-      border-radius: 8px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      font-size: 0.9rem;
-      margin-right: 10px;
-      margin-top: 10px;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, var(--primary) 0%, #0ea5e9 100%);
-      color: #000;
-    }
-
-    .btn-primary:hover {
-      transform: scale(1.05);
-      box-shadow: 0 8px 20px rgba(56, 189, 248, 0.3);
-    }
-
-    .btn-secondary {
-      background: #334155;
-      color: var(--text);
-    }
-
-    .btn-secondary:hover {
-      background: #475569;
-    }
-
-    .btn-back {
-      background: rgba(52, 65, 85, 0.5);
-      border: 1px solid rgba(56, 189, 248, 0.3);
-      color: var(--text);
-      padding: 10px 15px;
-    }
-
-    .btn-back:hover {
-      background: rgba(56, 189, 248, 0.1);
-      border-color: var(--primary);
-    }
-
-    /* ============ RESPONSIVE ============ */
-    @media (max-width: 768px) {
-      .navbar {
-        flex-direction: column;
-        gap: 10px;
-      }
-
-      .navbar h1 {
-        font-size: 1.3rem;
-      }
-
-      .systems-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .metrics-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .container {
-        padding: 15px;
-      }
-    }
-  </style>
+        /* Nút điều khiển phía dưới */
+        .controls { position: absolute; bottom: 0; width: 100%; display: flex; background: #7f8c8d; }
+        .btn { flex: 1; padding: 15px; border: 1px solid #636e72; text-align: center; cursor: pointer; color: white; font-weight: bold; text-transform: uppercase; }
+        .btn-menu { background: #2980b9; }
+        .btn-start { background: #27ae60; }
+        .btn-stop { background: #c0392b; }
+    </style>
 </head>
 <body>
 
-<!-- NAVBAR -->
-<div class="navbar">
-  <h1>🎛️ SCADA MONITORING SYSTEM</h1>
-  <div class="navbar-right">
-    <div class="live-clock" id="liveClock">--:--:--</div>
-    <div class="sync-status" id="syncStatus">Đang kết nối...</div>
-  </div>
-</div>
-
-<!-- BREADCRUMB -->
-<div class="breadcrumb" id="breadcrumb"></div>
-
-<!-- MAIN CONTAINER -->
-<div class="container">
-  
-  <!-- VIEW 1: HOME (Hệ thống chính) -->
-  <div id="view-home" class="view active">
-    <h2 style="margin-bottom: 20px; color: var(--primary);">Danh Sách Hệ Thống</h2>
-    <div class="systems-grid" id="systemsGrid"></div>
-  </div>
-
-  <!-- VIEW 2: SUBSYSTEMS (Hệ thống con) -->
-  <div id="view-subsystems" class="view">
-    <h2 style="margin-bottom: 20px; color: var(--primary);" id="subsystemsTitle">Hệ Thống Con</h2>
-    <div class="subsystems-grid" id="subsystemsGrid"></div>
-  </div>
-
-  <!-- VIEW 3: DETAILS (Chi tiết chỉ số) -->
-  <div id="view-details" class="view">
-    <h2 style="margin-bottom: 20px; color: var(--primary);" id="detailsTitle">Chi Tiết Giám Sát</h2>
-    
-    <!-- METRICS CARDS -->
-    <div class="metrics-grid" id="metricsGrid"></div>
-
-    <!-- CHART SECTION -->
-    <div class="chart-section">
-      <h3>📊 Biểu Đồ Theo Dõi 24H</h3>
-      <div class="chart-viewport">
-        <div class="chart-wrapper">
-          <canvas id="chartCanvas"></canvas>
-        </div>
-      </div>
-      <button class="btn btn-primary" onclick="scrollChartToEnd()">📍 BÁM SÁT HIỆN TẠI</button>
+<div class="screen-container">
+    <div class="header">
+        <div class="logo">捷豹 JAGUAR</div>
+        <div id="connection-status" style="font-size: 12px; color: green;">● 4G Online</div>
     </div>
-  </div>
 
+    <div id="screen1" class="screen active">
+        <h3 style="text-align:center">Intelligent Control System</h3>
+        <div class="monitor-grid">
+            <div class="data-box"><span>Áp suất (MPa):</span> <span class="value" id="val-press1">0.00</span></div>
+            <div class="data-box"><span>Nhiệt độ (°C):</span> <span class="value" id="val-temp1">0</span></div>
+            <div class="data-box"><span>Điện áp (V):</span> <span class="value" id="val-volt">0</span></div>
+            <div class="data-box"><span>Tần số (Hz):</span> <span class="value" id="val-freq1">0.00</span></div>
+        </div>
+        <div class="diagram">
+            [ Sơ đồ hệ thống máy nén khí ]
+        </div>
+    </div>
+
+    <div id="screen2" class="screen">
+        <h3 style="text-align:center">Menu</h3>
+        <div class="menu-grid">
+            <div class="menu-item" onclick="showScreen('screen3')">
+                <span class="icon">📊</span> Monitoring Data
+            </div>
+            <div class="menu-item">
+                <span class="icon">🛠️</span> Maintenance
+            </div>
+            <div class="menu-item">
+                <span class="icon">⚙️</span> Parameters
+            </div>
+            <div class="menu-item">
+                <span class="icon">⚠️</span> Fault List
+            </div>
+            <div class="menu-item">
+                <span class="icon">🕒</span> Timing
+            </div>
+        </div>
+    </div>
+
+    <div id="screen3" class="screen">
+        <div style="display:flex; justify-content: space-between; align-items:center">
+            <h3>More Monitoring Page</h3>
+            <button onclick="showScreen('screen2')">Back</button>
+        </div>
+        <table class="detail-table">
+            <tr><td class="label">Pressure</td> <td class="value"><span id="val-press2">0.00</span> MPa</td></tr>
+            <tr><td class="label">Temperature</td> <td class="value"><span id="val-temp2">0</span> °C</td></tr>
+            <tr><td class="label">Host frequency</td> <td class="value"><span id="val-freq2">0.00</span> Hz</td></tr>
+            <tr><td class="label">Total power</td> <td class="value"><span id="val-power">0</span> kWh</td></tr>
+            <tr><td class="label">Running time</td> <td class="value"><span id="val-runtime">0</span> h</td></tr>
+        </table>
+    </div>
+
+    <div class="controls">
+        <div class="btn btn-menu" onclick="showScreen('screen2')">MENU</div>
+        <div class="btn btn-menu" onclick="showScreen('screen1')">HOME</div>
+        <div class="btn btn-start">START</div>
+        <div class="btn btn-stop">STOP</div>
+    </div>
 </div>
 
-<!-- FIREBASE SCRIPTS -->
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-
-<!-- MAIN SCRIPT -->
 <script>
-  // ============ FIREBASE CONFIG ============
-  const firebaseConfig = {
-    apiKey: "AIzaSyBWRpQCnDWV5YQpoXZ_o7aqfGdv_7yUT38",
-    authDomain: "wed-demo-d236a.firebaseapp.com",
-    databaseURL: "https://wed-demo-d236a-default-rtdb.firebaseio.com",
-    projectId: "wed-demo-d236a",
-    storageBucket: "wed-demo-d236a.firebasestorage.app",
-    messagingSenderId: "410178635616",
-    appId: "1:410178635616:web:c4d513a888176847198005"
-  };
-
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
-
-  // ============ DATA STRUCTURE ============
-  const systemsHierarchy = {
-    sys1: {
-      name: "Hệ Thống Nhiệt Độ & Độ Ẩm",
-      icon: "🌡️",
-      description: "Giám sát nhiệt độ và độ ẩm môi trường",
-      subsystems: {
-        sub1: { name: "Khu Vực Máy Chủ", metrics: ["temp", "humidity"] },
-        sub2: { name: "Khu Vực Lạnh", metrics: ["temp", "humidity"] }
-      }
-    },
-    sys2: {
-      name: "Hệ Thống Điện",
-      icon: "⚡",
-      description: "Quản lý và giám sát tiêu thụ điện",
-      subsystems: {
-        sub3: { name: "UPS Chính", metrics: ["voltage", "current"] },
-        sub4: { name: "PDU Phụ", metrics: ["voltage", "current"] }
-      }
-    },
-    sys3: {
-      name: "Hệ Thống Máy Chủ",
-      icon: "🖥️",
-      description: "Theo dõi hiệu suất máy chủ",
-      subsystems: {
-        sub5: { name: "Server 01", metrics: ["cpu", "memory"] },
-        sub6: { name: "Server 02", metrics: ["cpu", "memory"] }
-      }
-    }
-  };
-
-  // ============ STATE MANAGEMENT ============
-  let currentView = 'home';
-  let currentSystem = null;
-  let currentSubsystem = null;
-  let chartInstance = null;
-  const MAX_DATA_POINTS = 1440; // 24 hours @ 1 point/min
-  const chartData = {
-    temp: [],
-    humidity: [],
-    voltage: [],
-    current: [],
-    cpu: [],
-    memory: []
-  };
-
-  // ============ CLOCK UPDATE ============
-  setInterval(() => {
-    document.getElementById('liveClock').innerText = new Date().toLocaleTimeString('vi-VN');
-  }, 1000);
-
-  // ============ BREADCRUMB NAVIGATION ============
-  function updateBreadcrumb() {
-    let html = '<span onclick="navigateTo(\'home\')">🏠 Trang Chủ</span>';
-    
-    if (currentSystem) {
-      html += ` / <span onclick="navigateTo('subsystems')">${systemsHierarchy[currentSystem].name}</span>`;
-    }
-    
-    if (currentSubsystem) {
-      html += ` / <span>${systemsHierarchy[currentSystem].subsystems[currentSubsystem].name}</span>`;
-    }
-    
-    document.getElementById('breadcrumb').innerHTML = html;
-  }
-
-  // ============ NAVIGATION ============
-  function navigateTo(view, system = null, subsystem = null) {
-    // Hide all views
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    
-    currentView = view;
-    currentSystem = system;
-    currentSubsystem = subsystem;
-
-    updateBreadcrumb();
-
-    if (view === 'home') {
-      document.getElementById('view-home').classList.add('active');
-      renderSystems();
-    } else if (view === 'subsystems') {
-      document.getElementById('view-subsystems').classList.add('active');
-      renderSubsystems();
-    } else if (view === 'details') {
-      document.getElementById('view-details').classList.add('active');
-      renderDetails();
-      setTimeout(() => initChart(), 100);
-    }
-  }
-
-  // ============ RENDER SYSTEMS ============
-  function renderSystems() {
-    const grid = document.getElementById('systemsGrid');
-    grid.innerHTML = '';
-
-    Object.keys(systemsHierarchy).forEach(sysKey => {
-      const sys = systemsHierarchy[sysKey];
-      const subsysCount = Object.keys(sys.subsystems).length;
-
-      grid.innerHTML += `
-        <div class="system-card" onclick="navigateTo('subsystems', '${sysKey}')">
-          <div class="system-icon">${sys.icon}</div>
-          <h2>${sys.name}</h2>
-          <p>${sys.description}</p>
-          <div class="subsystem-count">📦 ${subsysCount} hệ thống con</div>
-        </div>
-      `;
-    });
-  }
-
-  // ============ RENDER SUBSYSTEMS ============
-  function renderSubsystems() {
-    const grid = document.getElementById('subsystemsGrid');
-    const sys = systemsHierarchy[currentSystem];
-    
-    document.getElementById('subsystemsTitle').innerText = `${sys.name} - Danh Sách Hệ Thống Con`;
-    grid.innerHTML = '';
-
-    Object.keys(sys.subsystems).forEach(subKey => {
-      const sub = sys.subsystems[subKey];
-      grid.innerHTML += `
-        <div class="subsystem-card" onclick="navigateTo('details', '${currentSystem}', '${subKey}')">
-          <h3>${sub.name}</h3>
-          <div class="status">
-            <div class="status-dot"></div>
-            <span>Hoạt động bình thường</span>
-          </div>
-          <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 12px;">
-            📊 ${sub.metrics.length} chỉ số theo dõi
-          </div>
-          <button class="btn btn-primary" style="width: 100%; margin-top: 12px;">Chi Tiết</button>
-        </div>
-      `;
-    });
-  }
-
-  // ============ RENDER DETAILS & METRICS ============
-  function renderDetails() {
-    const sys = systemsHierarchy[currentSystem];
-    const sub = sys.subsystems[currentSubsystem];
-    
-    document.getElementById('detailsTitle').innerText = `${sub.name} - Chi Tiết Giám Sát`;
-
-    const grid = document.getElementById('metricsGrid');
-    grid.innerHTML = '';
-
-    const metricsInfo = {
-      temp: { label: 'Nhiệt Độ', unit: '°C', icon: '🌡️', min: 15, max: 35 },
-      humidity: { label: 'Độ Ẩm', unit: '%', icon: '💧', min: 30, max: 80 },
-      voltage: { label: 'Điện Áp', unit: 'V', icon: '⚡', min: 220, max: 240 },
-      current: { label: 'Dòng Điện', unit: 'A', icon: '🔌', min: 0, max: 100 },
-      cpu: { label: 'CPU', unit: '%', icon: '⚙️', min: 0, max: 100 },
-      memory: { label: 'RAM', unit: '%', icon: '🧠', min: 0, max: 100 }
+    // 1. Cấu hình Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyBWRpQCnDWV5YQpoXZ_o7aqfGdv_7yUT38",
+        authDomain: "wed-demo-d236a.firebaseapp.com",
+        databaseURL: "https://wed-demo-d236a-default-rtdb.firebaseio.com",
+        projectId: "wed-demo-d236a",
+        storageBucket: "wed-demo-d236a.firebasestorage.app",
+        messagingSenderId: "410178635616",
+        appId: "1:410178635616:web:c4d513a888176847198005"
     };
 
-    sub.metrics.forEach(metric => {
-      const info = metricsInfo[metric];
-      grid.innerHTML += `
-        <div class="metric-card" id="metric-${metric}">
-          <div class="metric-label">${info.icon} ${info.label}</div>
-          <div class="metric-value" id="value-${metric}">--</div>
-          <div class="metric-unit">${info.unit}</div>
-          <div class="metric-status">
-            <small id="status-${metric}">Đang tải dữ liệu...</small>
-          </div>
-        </div>
-      `;
-    });
-  }
+    // Khởi tạo Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
 
-  // ============ UPDATE METRICS FROM FIREBASE ============
-  function updateMetrics() {
-    db.ref('data').on('value', (snap) => {
-      const data = snap.val();
-      if (data) {
-        updateMetricCard('temp', data.temp, 15, 35);
-        updateMetricCard('humidity', data.hum, 30, 80);
-        
-        // Add to chart data
-        const now = new Date().getTime();
-        chartData.temp.push({ x: now, y: parseFloat(data.temp) });
-        chartData.humidity.push({ x: now, y: parseFloat(data.hum) });
-
-        // Keep only last 1440 points
-        if (chartData.temp.length > MAX_DATA_POINTS) {
-          chartData.temp.shift();
-          chartData.humidity.shift();
-        }
-
-        document.getElementById('syncStatus').innerText = '✅ Đã cập nhật';
-      }
-    });
-  }
-
-  function updateMetricCard(metric, value, min, max) {
-    const el = document.getElementById(`value-${metric}`);
-    const card = document.getElementById(`metric-${metric}`);
-    const status = document.getElementById(`status-${metric}`);
-
-    if (!el) return;
-
-    const numValue = parseFloat(value);
-    el.innerText = numValue.toFixed(1);
-
-    // Update status
-    card.classList.remove('alarm', 'warning');
-    if (numValue > max) {
-      card.classList.add('alarm');
-      status.innerText = '🔴 CẢNH BÁO: Vượt quá giới hạn';
-    } else if (numValue > max - 5) {
-      card.classList.add('warning');
-      status.innerText = '🟡 CẢNH CÁO: Gần đạt giới hạn';
-    } else {
-      status.innerText = '🟢 Bình thường';
-    }
-  }
-
-  // ============ CHART INITIALIZATION ============
-  function initChart() {
-    const canvas = document.getElementById('chartCanvas');
-    if (!canvas) return;
-
-    if (chartInstance) {
-      chartInstance.destroy();
+    // 2. Hàm chuyển đổi màn hình
+    function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
     }
 
-    const ctx = canvas.getContext('2d');
-    chartInstance = new Chart(ctx, {
-      type: 'line',
-      data: {
-        datasets: [
-          {
-            label: 'Nhiệt độ (°C)',
-            data: chartData.temp,
-            borderColor: '#38bdf8',
-            backgroundColor: 'rgba(56, 189, 248, 0.05)',
-            borderWidth: 3,
-            pointRadius: 1,
-            pointBackgroundColor: '#38bdf8',
-            tension: 0.3,
-            fill: false
-          },
-          {
-            label: 'Độ ẩm (%)',
-            data: chartData.humidity,
-            borderColor: '#10b981',
-            backgroundColor: 'rgba(16, 185, 129, 0.05)',
-            borderWidth: 3,
-            pointRadius: 1,
-            pointBackgroundColor: '#10b981',
-            tension: 0.3,
-            fill: false
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: {
-            type: 'time',
-            time: {
-              unit: 'minute',
-              displayFormats: { minute: 'HH:mm' }
-            },
-            grid: { color: 'rgba(255, 255, 255, 0.05)' }
-          },
-          y: {
-            min: 0,
-            max: 100,
-            grid: { color: 'rgba(255, 255, 255, 0.05)' }
-          }
-        },
-        plugins: {
-          legend: {
-            labels: { color: 'var(--text-muted)', boxWidth: 12 }
-          },
-          tooltip: {
-            mode: 'index',
-            intersect: false,
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            borderColor: 'var(--primary)',
-            borderWidth: 1,
-            titleColor: 'var(--primary)'
-          }
+    // 3. Lấy dữ liệu thời gian thực
+    // Lưu ý: Đường dẫn 'monitoring' bên dưới bạn cần đổi đúng với cấu trúc trên Firebase của bạn
+    const dataRef = database.ref('system_status'); 
+    dataRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if(data) {
+            // Cập nhật màn hình 1
+            document.getElementById('val-press1').innerText = data.pressure || "0.68";
+            document.getElementById('val-temp1').innerText = data.temperature || "76";
+            document.getElementById('val-volt').innerText = data.voltage || "295";
+            document.getElementById('val-freq1').innerText = data.frequency || "118.09";
+
+            // Cập nhật màn hình 3
+            document.getElementById('val-press2').innerText = data.pressure || "0.69";
+            document.getElementById('val-temp2').innerText = data.temperature || "75";
+            document.getElementById('val-freq2').innerText = data.frequency || "96.24";
+            document.getElementById('val-power').innerText = data.total_power || "104158";
+            document.getElementById('val-runtime').innerText = data.run_time || "41";
         }
-      }
     });
-  }
-
-  function scrollChartToEnd() {
-    const viewport = document.querySelector('.chart-viewport');
-    if (viewport) {
-      viewport.scrollLeft = viewport.scrollWidth;
-    }
-  }
-
-  // ============ LOAD HISTORY DATA ============
-  function loadHistoryData() {
-    db.ref('history').orderByChild('timestamp').limitToLast(1440).once('value', (snap) => {
-      const data = snap.val();
-      if (data) {
-        const sorted = Object.values(data).sort((a, b) => a.timestamp - b.timestamp);
-        chartData.temp = [];
-        chartData.humidity = [];
-        
-        sorted.forEach(item => {
-          chartData.temp.push({ x: item.timestamp, y: item.temp });
-          chartData.humidity.push({ x: item.timestamp, y: item.hum });
-        });
-
-        if (chartInstance) {
-          chartInstance.data.datasets[0].data = chartData.temp;
-          chartInstance.data.datasets[1].data = chartData.humidity;
-          chartInstance.update();
-          scrollChartToEnd();
-        }
-
-        document.getElementById('syncStatus').innerText = '✅ Đã tải dữ liệu 24h';
-      }
-    });
-  }
-
-  // ============ INITIALIZATION ============
-  window.addEventListener('load', () => {
-    renderSystems();
-    updateMetrics();
-    loadHistoryData();
-  });
 </script>
 
 </body>
