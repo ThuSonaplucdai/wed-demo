@@ -1,0 +1,112 @@
+#include <Arduino.h>
+#include <ModbusMaster.h>
+
+#define RX2_PIN      16
+#define TX2_PIN      17
+#define RE_DE_PIN    4
+
+ModbusMaster node;
+uint8_t foundID = 0; 
+
+void preTransmission() { digitalWrite(RE_DE_PIN, HIGH); }
+void postTransmission() { digitalWrite(RE_DE_PIN, LOW); }
+
+/** * CHỨC NĂNG 1: TỰ ĐỘNG DÒ TÌM ID
+ */
+uint8_t scanForDevice() {
+    Serial.println("\n[!] Dang quet tim ID...");
+    for (uint8_t id = 1; id <= 247; id++) {
+        node.begin(id, Serial2);
+        uint8_t result = node.readHoldingRegisters(0, 1);
+        if (result != 0xE2) { 
+            Serial.printf("\n[OK] DA TIM THAY ID: %d\n", id);
+            return id; 
+        }
+        if (id % 10 == 0) Serial.print(".");
+        delay(5); yield();
+    }
+    return 0;
+}
+
+void setup() {
+    Serial.begin(115200);
+    Serial2.begin(9600, SERIAL_8N1, RX2_PIN, TX2_PIN);
+    pinMode(RE_DE_PIN, OUTPUT);
+    digitalWrite(RE_DE_PIN, LOW);
+    node.preTransmission(preTransmission);
+    node.postTransmission(postTransmission);
+}
+
+void loop() {
+    if (foundID == 0) {
+        foundID = scanForDevice();
+        if (foundID != 0) {
+            Serial.println("\n[HD] Nhap xong bam ENTER de thuc hien.");
+            Serial.println("- Doc: Nhap 'DiaChi' (VD: 0x02)");
+            Serial.println("- Ghi: Nhap 'DiaChi=GiaTri' (VD: 0x02=100)");
+        } else {
+            delay(2000); return;
+        }
+    }
+
+    /** * CHỨC NĂNG 2: CHỈ XỬ LÝ KHI NHẤN ENTER
+     */
+    if (Serial.available() > 0) {
+        // Doc toan bo chuoi cho den khi gap ky tu xuong dong (Enter)
+        String input = Serial.readStringUntil('\n');
+        
+        // Xoa cac ky tu rac hoac khoang trang du thua
+        input.trim(); 
+
+        // CHỈ THỰC HIỆN KHI CHUỖI CÓ DỮ LIỆU (Tuc la ban da nhap va bam Enter)
+        if (input.length() > 0) {
+            uint16_t targetAddress;
+            uint16_t writeValue;
+            bool isWriteCommand = false;
+
+            // Kiem tra dau '=' de phan biet Doc/Ghi
+            int equalIndex = input.indexOf('=');
+            if (equalIndex != -1) {
+                isWriteCommand = true;
+                String addrPart = input.substring(0, equalIndex);
+                String valPart = input.substring(equalIndex + 1);
+                addrPart.trim(); valPart.trim();
+
+                if (addrPart.startsWith("0x") || addrPart.startsWith("0X")) 
+                    targetAddress = (uint16_t)strtol(addrPart.c_str(), NULL, 16);
+                else targetAddress = (uint16_t)addrPart.toInt();
+
+                writeValue = (uint16_t)valPart.toInt();
+            } else {
+                if (input.startsWith("0x") || input.startsWith("0X")) 
+                    targetAddress = (uint16_t)strtol(input.c_str(), NULL, 16);
+                else targetAddress = (uint16_t)input.toInt();
+            }
+
+            // Thuc hien lenh Modbus sau khi xac nhan bam Enter
+            node.begin(foundID, Serial2);
+            uint8_t result;
+
+            if (isWriteCommand) {
+                Serial.printf("\n[LENH GHI] Addr: 0x%02X, Val: %d\n", targetAddress, writeValue);
+                result = node.writeSingleRegister(targetAddress, writeValue);
+                if (result == node.ku8MBSuccess) Serial.println(">> Ghi thanh cong!");
+                else Serial.printf(">> Loi ghi: 0x%02X\n", result);
+            } else {
+                Serial.printf("\n[LENH DOC] Addr: 0x%02X\n", targetAddress);
+                result = node.readHoldingRegisters(targetAddress, 1);
+                if (result == node.ku8MBSuccess) {
+                    uint16_t data = node.getResponseBuffer(0);
+                    Serial.printf(">> Gia tri: %d (0x%04X)\n", data, data);
+                } else Serial.printf(">> Loi doc: 0x%02X\n", result);
+            }
+
+            if (result == 0xE2) {
+                Serial.println("[!] Mat ket noi. Dang scan lai...");
+                foundID = 0;
+            }
+            Serial.println("\n-----------------------------");
+            Serial.println("Nhap lenh moi va bam ENTER:");
+        }
+    }
+}
