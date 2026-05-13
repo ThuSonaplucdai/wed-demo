@@ -1,0 +1,138 @@
+#include <WiFi.h>
+#include <Firebase_ESP_Client.h>
+#include <Ticker.h>
+#include "time.h"
+#include <addons/TokenHelper.h>
+#include <addons/RTDBHelper.h>
+
+// --- Hạ tầng kết nối ---
+#define WIFI_SSID "OPPO Reno14 5G 5460"
+#define WIFI_PASSWORD "88888888"
+#define FIREBASE_HOST "wed-demo-d236a-default-rtdb.firebaseio.com"
+#define FIREBASE_AUTH "51DfTBzUyx0OX9uUqe4L4Aeg5j6rEjOZ7nd5Q3PN"
+
+// --- Tham số hệ thống ---
+const long LECH_GIO_VN = 7 * 3600; // GMT+7 tính bằng giây để đồng bộ giờ Việt Nam.
+const int NGAY_BAO_TRI = 1;        // Ngày 1 hàng tháng dọn dẹp history để tối ưu tốc độ Web.
+const float CHU_KY_GUI = 60.0;     // Gửi dữ liệu mỗi 60s để tiết kiệm tài nguyên.
+
+// --- QUẢN LÝ DỮ LIỆU LINH HOẠT (Đúng theo ảnh Firebase của bạn) ---
+#define NUM_VARS 4 
+String ds_duong_dan[NUM_VARS] = {
+    "/data/temp", 
+    "/data/volt", 
+    "/data/freq", 
+    "/data/total_power" // Thêm biến này theo ảnh bạn gửi
+};
+float ds_gia_tri[NUM_VARS] = {0, 0, 0, 0};
+
+FirebaseData fbdo;
+FirebaseAuth auth;
+FirebaseConfig config;
+Ticker timerSend;
+bool san_sang_gui = false;
+
+// ================================================================
+// CÁC MODULE CHỨC NĂNG TỐI ƯU
+// ================================================================
+
+// Gửi dữ liệu đa biến: Vừa ghi đè giá trị thực, vừa lưu lịch sử.
+void dayDuLieuFirebase(String paths[], float values[], int len) {
+    if (!Firebase.ready()) return;
+
+    FirebaseJson jsonHistory;
+    for (int i = 0; i < len; i++) {
+        // 1. Ghi đè giá trị tức thời vào đúng địa chỉ khai báo
+        Firebase.RTDB.setFloat(&fbdo, paths[i], values[i]);
+        
+        // 2. Tách tên biến từ đường dẫn (ví dụ /data/temp -> lấy "temp") để làm Key JSON
+        int lastSlash = paths[i].lastIndexOf('/');
+        String key = (lastSlash != -1) ? paths[i].substring(lastSlash + 1) : paths[i];
+        jsonHistory.add(key, values[i]);
+    }
+    
+    // Thêm thời gian thực từ Server Firebase cho bản ghi lịch sử
+    jsonHistory.set("timestamp/.sv", "timestamp");
+    Firebase.RTDB.pushJSON(&fbdo, "/history", &jsonHistory);
+
+    // Cập nhật trạng thái thiết bị theo cấu trúc ảnh của bạn
+    Firebase.RTDB.setInt(&fbdo, "/device/status", 1); 
+    Firebase.RTDB.setTimestamp(&fbdo, "/device/lastUpdate");
+}
+
+// Bảo trì hệ thống: Tự động xóa history và tạo mốc tháng nếu chưa có.
+void baoTriHeThong(String historyPath, String markerPath) {
+    struct tm info;
+    if (!getLocalTime(&info)) return; // Chờ đến khi lấy được giờ từ NTP
+
+    int thang_hien_tai = info.tm_mon + 1;
+    int ngay_hien_tai = info.tm_mday;
+
+    // Đọc mốc tháng cũ trên Firebase
+    int thang_da_xoa = -1;
+    bool da_co_moc = Firebase.RTDB.getInt(&fbdo, markerPath);
+    if (da_co_moc) thang_da_xoa = fbdo.intData();
+
+    // LOGIC: Nếu chưa có mốc (dự án mới) HOẶC (Đến ngày 1 VÀ chưa xóa tháng này)
+    if (!da_co_moc || (ngay_hien_tai == NGAY_BAO_TRI && thang_hien_tai != thang_da_xoa)) {
+        Serial.println("[System] Dang thuc hien bao tri/khoi tao...");
+        
+        if (Firebase.RTDB.deleteNode(&fbdo, historyPath)) {
+            // Ghi đè tháng hiện tại làm mốc mới
+            Firebase.RTDB.setInt(&fbdo, markerPath, thang_hien_tai);
+            Serial.printf("[System] Da tao mốc bao tri thang: %d\n", thang_hien_tai);
+        }
+    }
+}
+
+// ================================================================
+// LUỒNG VẬN HÀNH CHÍNH
+// ================================================================
+
+void setup() {
+    Serial.begin(115200);
+    
+    // Kết nối WiFi
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
+    
+    // Lấy giờ Việt Nam
+    configTime(LECH_GIO_VN, 0, "pool.ntp.org", "time.nist.gov");
+    
+    // Cấu hình Firebase
+    config.host = FIREBASE_HOST;
+    config.signer.tokens.legacy_token = FIREBASE_AUTH;
+    Firebase.begin(&config, &auth);
+    Firebase.reconnectWiFi(true);
+
+    // Hẹn giờ gửi tin
+    timerSend.attach(CHU_KY_GUI, []() { san_sang_gui = true; });
+    
+    Serial.println("\n[ESP32] He thong san sang.");
+}
+
+void loop() {
+    // 1. Luôn ưu tiên kiểm tra mốc bảo trì (Tự tạo nếu thiếu)
+    baoTriHeThong("/history", "/last_cleanup_month");
+
+    // 2. Đọc dữ liệu từ Serial (Phân tách n giá trị bằng dấu phẩy)
+    if (Serial.available() > 0) {
+        String s = Serial.readStringUntil('\n');
+        s.trim();
+        for (int i = 0; i < NUM_VARS; i++) {
+            int p = s.indexOf(',');
+            if (p != -1) {
+                ds_gia_tri[i] = s.substring(0, p).toFloat();
+                s = s.substring(p + 1);
+            } else {
+                ds_gia_tri[i] = s.toFloat();
+            }
+        }
+    }
+
+    // 3. Gửi dữ liệu lên Cloud theo chu kỳ
+    if (san_sang_gui) {
+        san_sang_gui = false;
+        dayDuLieuFirebase(ds_duong_dan, ds_gia_tri, NUM_VARS);
+    }
+}
