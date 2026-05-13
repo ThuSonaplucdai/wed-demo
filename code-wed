@@ -1,0 +1,116 @@
+#include <Arduino.h>
+#include <WiFi.h>
+#include <Firebase_ESP_Client.h>
+#include <Ticker.h>
+#include "time.h"
+#include <ModbusMaster.h>
+#include <addons/TokenHelper.h>
+#include <addons/RTDBHelper.h>
+
+// --- THÔNG TIN KẾT NỐI (Giữ nguyên theo Web của bạn) ---
+#define WIFI_SSID "OPPO Reno14 5G 5460"
+#define WIFI_PASSWORD "88888888"
+#define FIREBASE_HOST "wed-demo-d236a-default-rtdb.firebaseio.com"
+#define FIREBASE_AUTH "51DfTBzUyx0OX9uUqe4L4Aeg5j6rEjOZ7nd5Q3PN"
+
+// --- MODBUS PINS ---
+#define RX2_PIN 16
+#define TX2_PIN 17
+#define RE_DE_PIN 4
+ModbusMaster node;
+uint8_t foundID = 0;
+
+// --- BIẾN DỮ LIỆU ---
+// Thứ tự mảng: 0:Temp, 1:Volt, 2:Freq, 3:Power, 4:Pressure 
+#define NUM_VARS 5
+uint16_t modbus_addrs[NUM_VARS] = {0x00, 0x02, 0x04, 0x08, 0x0A}; 
+float val[NUM_VARS] = {0, 0, 0, 0, 0};
+
+FirebaseData fbdo;
+FirebaseAuth auth;
+FirebaseConfig config;
+Ticker timerSend;
+bool san_sang_gui = false;
+
+void preTransmission() { digitalWrite(RE_DE_PIN, HIGH); }
+void postTransmission() { digitalWrite(RE_DE_PIN, LOW); }
+
+void setup() {
+    Serial.begin(115200);
+    Serial2.begin(38400, SERIAL_8N1, RX2_PIN, TX2_PIN);
+    pinMode(RE_DE_PIN, OUTPUT);
+    node.preTransmission(preTransmission);
+    node.postTransmission(postTransmission);
+
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    while (WiFi.status() != WL_CONNECTED) delay(500);
+
+    configTime(7 * 3600, 0, "pool.ntp.org");
+    config.host = FIREBASE_HOST;
+    config.signer.tokens.legacy_token = FIREBASE_AUTH;
+    Firebase.begin(&config, &auth);
+    Firebase.reconnectWiFi(true);
+
+    timerSend.attach(60.0, []() { san_sang_gui = true; });
+}
+
+// Hàm gửi dữ liệu khớp hoàn toàn với giao diện Web Jaguar
+void dayDuLieuFirebase() {
+    if (!Firebase.ready()) return;
+
+    // 1. Cập nhật node 'data' (Cho trang chủ)
+    Firebase.RTDB.setFloat(&fbdo, "/data/temp", val[0]);
+    Firebase.RTDB.setFloat(&fbdo, "/data/total_power", val[3]);
+
+    // 2. Cập nhật node 'device' (Cho giao diện Jaguar Control Unit)
+    FirebaseJson deviceJson;
+    deviceJson.add("temperature", val[0]);
+    deviceJson.add("voltage", val[1]);
+    deviceJson.add("frequency", val[2]);
+    deviceJson.add("total_power", val[3]);
+    deviceJson.add("pressure", val[4]);
+    Firebase.RTDB.updateNode(&fbdo, "/device", &deviceJson);
+
+    // 3. Cập nhật node 'history' (Đúng cấu trúc YYYY-MM-DD/HH-mm để Web lọc được)
+    struct tm info;
+    if (getLocalTime(&info)) {
+        char folder[12], file[12];
+        strftime(folder, sizeof(folder), "%Y-%m-%d", &info);
+        strftime(file, sizeof(file), "%H-%M", &info);
+        
+        String path = "/history/" + String(folder) + "/" + String(file);
+        FirebaseJson historyJson;
+        historyJson.add("temperature", val[0]);
+        historyJson.add("pressure", val[4]);
+        Firebase.RTDB.setJSON(&fbdo, path, &historyJson);
+    }
+}
+
+void loop() {
+    if (foundID == 0) {
+        for (uint8_t id = 1; id <= 10; id++) {
+            node.begin(id, Serial2);
+            if (node.readHoldingRegisters(modbus_addrs[0], 1) == node.ku8MBSuccess) {
+                foundID = id; break;
+            }
+            delay(10);
+        }
+    }
+
+    // Đọc Modbus liên tục
+    static unsigned long lastRead = 0;
+    if (millis() - lastRead > 2000) {
+        lastRead = millis();
+        for (int i = 0; i < NUM_VARS; i++) {
+            if (node.readHoldingRegisters(modbus_addrs[i], 1) == node.ku8MBSuccess) {
+                val[i] = (float)node.getResponseBuffer(0);
+            }
+            delay(40);
+        }
+    }
+
+    if (san_sang_gui) {
+        san_sang_gui = false;
+        dayDuLieuFirebase();
+    }
+}
