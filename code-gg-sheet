@@ -1,0 +1,48 @@
+var FIREBASE_URL = "https://wed-demo-d236a-default-rtdb.firebaseio.com/";
+var SECRET_KEY = "51DfTBzUyx0OX9uUqe4L4Aeg5j6rEjOZ7nd5Q3PN";
+
+function syncData() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getActiveSheet();
+  
+  try {
+    var response = UrlFetchApp.fetch(FIREBASE_URL + "history.json?auth=" + SECRET_KEY);
+    var data = JSON.parse(response.getContentText());
+    
+    if (data && data !== null) {
+      for (var key in data) {
+        var record = data[key];
+        var timestamp = record.timestamp;
+        var date = new Date(timestamp);
+        
+        // 1. Lấy tất cả các "nhãn" dữ liệu hiện có trong bản ghi này (loại bỏ timestamp)
+        var keys = Object.keys(record).filter(function(k) { return k !== 'timestamp' });
+        
+        // 2. Chuẩn bị một dòng dữ liệu mới, bắt đầu bằng cột Thời gian
+        var rowData = [date];
+        
+        // 3. Kiểm tra và điền dữ liệu vào đúng cột
+        keys.forEach(function(label) {
+          // Lấy tiêu đề các cột hiện tại ở dòng 1
+          var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+          var colIndex = headers.indexOf(label);
+          
+          if (colIndex === -1) {
+            // NẾU CHƯA CÓ CỘT NÀY: Tự động thêm tiêu đề mới vào cột tiếp theo
+            colIndex = headers.length;
+            sheet.getRange(1, colIndex + 1).setValue(label);
+            Logger.log("Đã tạo cột mới cho: " + label);
+          }
+          
+          // Điền giá trị vào đúng vị trí tương ứng trong dòng
+          rowData[colIndex] = record[label];
+        });
+        
+        // 4. Ghi toàn bộ dòng dữ liệu vào Sheets
+        sheet.appendRow(rowData);
+      }
+    }
+  } catch (e) {
+    Logger.log("Lỗi: " + e.toString());
+  }
+}
