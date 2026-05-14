@@ -6,45 +6,118 @@
 #include <ModbusMaster.h>
 #include <addons/TokenHelper.h>
 #include <addons/RTDBHelper.h>
+#include <LittleFS.h>
 
-// --- THÔNG TIN KẾT NỐI (Giữ nguyên theo Web của bạn) ---
-#define WIFI_SSID "OPPO Reno14 5G 5460"
-#define WIFI_PASSWORD "88888888"
+// --- THÔNG TIN KẾT NỐI ---
+#define WIFI_SSID "BAOTRI6"
+#define WIFI_PASSWORD ""
 #define FIREBASE_HOST "wed-demo-d236a-default-rtdb.firebaseio.com"
 #define FIREBASE_AUTH "51DfTBzUyx0OX9uUqe4L4Aeg5j6rEjOZ7nd5Q3PN"
 
-// --- MODBUS PINS ---
 #define RX2_PIN 16
 #define TX2_PIN 17
 #define RE_DE_PIN 4
+
+struct VariableMap {
+    uint16_t address;
+    String firebaseKey;
+    float scale;
+    bool isHistory;
+};
+
+VariableMap myVars[] = {
+    {0x704E, "temperature", 10.0,  true},  
+    {0x7003, "voltage",     1.0,   false}, 
+    {0x7000, "frequency",   100.0, false}, 
+    {0x704D, "pressure",    10.0,  true}   
+};
+
+const int NUM_VARS = sizeof(myVars) / sizeof(myVars[0]);
+float currentValues[NUM_VARS]; 
+
 ModbusMaster node;
-uint8_t foundID = 0;
-
-// --- BIẾN DỮ LIỆU ---
-// Thứ tự mảng: 0:Temp, 1:Volt, 2:Freq, 3:Power, 4:Pressure 
-#define NUM_VARS 5
-uint16_t modbus_addrs[NUM_VARS] = {0x00, 0x02, 0x04, 0x08, 0x0A}; 
-float val[NUM_VARS] = {0, 0, 0, 0, 0};
-
 FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
 Ticker timerSend;
+uint8_t foundID = 0;
 bool san_sang_gui = false;
 
 void preTransmission() { digitalWrite(RE_DE_PIN, HIGH); }
 void postTransmission() { digitalWrite(RE_DE_PIN, LOW); }
 
+// --- HÀM XỬ LÝ BỘ NHỚ OFFLINE ---
+void luuOffline(String path, String json) {
+    File f = LittleFS.open("/offline_data.txt", "a"); 
+    if(f) {
+        f.println(path + "|" + json);
+        f.close();
+        Serial.println("[Offline] Đã lưu vào bộ nhớ tạm.");
+    }
+}
+
+void dayDuLieuTonDong() {
+    // 1. Kiểm tra kết nối trước khi làm bất cứ việc gì
+    if (WiFi.status() != WL_CONNECTED || !Firebase.ready()) return;
+    
+    // 2. Kiểm tra file có tồn tại không
+    if (!LittleFS.exists("/offline_data.txt")) return;
+
+    File f = LittleFS.open("/offline_data.txt", "r");
+    // 3. Kiểm tra mở file có thành công không
+    if (!f) {
+        Serial.println("[Offline] Không thể mở file để đọc!");
+        return; 
+    }
+    
+    if (f.size() == 0) {
+        f.close();
+        LittleFS.remove("/offline_data.txt");
+        return;
+    }
+
+    Serial.println("[Offline] Đang đồng bộ dữ liệu tồn đọng...");
+
+    while (f.available()) {
+        String line = f.readStringUntil('\n');
+        line.trim();
+        
+        if (line.length() > 5) { // Đảm bảo dòng có dữ liệu
+            int separatorIndex = line.indexOf('|');
+            if (separatorIndex != -1) {
+                String path = line.substring(0, separatorIndex);
+                String jsonContent = line.substring(separatorIndex + 1);
+                
+                // Khởi tạo Json an toàn
+                FirebaseJson offlineJson;
+                if (offlineJson.setJsonData(jsonContent)) {
+                    // Gửi lên Firebase
+                    if (Firebase.RTDB.setJSON(&fbdo, path, &offlineJson)) {
+                        Serial.printf(" >> Đã đẩy lại: %s\n", path.c_str());
+                    }
+                }
+            }
+        }
+        delay(50); // thời gian để xử lý WiFi
+    }
+    
+    f.close();
+    // 4. Sau khi gửi xong thì xóa file để tránh lặp lại
+    LittleFS.remove("/offline_data.txt");
+    Serial.println("[Offline] Đồng bộ hoàn tất và đã xóa bộ nhớ tạm.");
+}
+
+// --- THIẾT LẬP ---
 void setup() {
     Serial.begin(115200);
-    Serial2.begin(38400, SERIAL_8N1, RX2_PIN, TX2_PIN);
+    Serial2.begin(38400, SERIAL_8N1, RX2_PIN, TX2_PIN); 
     pinMode(RE_DE_PIN, OUTPUT);
     node.preTransmission(preTransmission);
     node.postTransmission(postTransmission);
 
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    while (WiFi.status() != WL_CONNECTED) delay(500);
+    if(!LittleFS.begin(true)) Serial.println("Lỗi LittleFS!");
 
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     configTime(7 * 3600, 0, "pool.ntp.org");
     config.host = FIREBASE_HOST;
     config.signer.tokens.legacy_token = FIREBASE_AUTH;
@@ -52,63 +125,110 @@ void setup() {
     Firebase.reconnectWiFi(true);
 
     timerSend.attach(60.0, []() { san_sang_gui = true; });
+    Serial.println("\n[Hệ thống] Bắt đầu hoạt động.");
 }
 
-// Hàm gửi dữ liệu khớp hoàn toàn với giao diện Web Jaguar
+// --- GỬI DỮ LIỆU ---
 void dayDuLieuFirebase() {
-    if (!Firebase.ready()) return;
+    FirebaseJson dataJson;
+    FirebaseJson historyJson;
+    bool hasHistory = false;
 
-    // 1. Cập nhật node 'data' (Cho trang chủ)
-    Firebase.RTDB.setFloat(&fbdo, "/data/temp", val[0]);
-    Firebase.RTDB.setFloat(&fbdo, "/data/total_power", val[3]);
+    // --- DÒNG THÔNG BÁO BẮT ĐẦU ---
+    Serial.println("\n-------------------------------------------");
+    Serial.println("[FIREBASE] BẮT ĐẦU CHU KỲ GỬI DỮ LIỆU (60S)");
 
-    // 2. Cập nhật node 'device' (Cho giao diện Jaguar Control Unit)
-    FirebaseJson deviceJson;
-    deviceJson.add("temperature", val[0]);
-    deviceJson.add("voltage", val[1]);
-    deviceJson.add("frequency", val[2]);
-    deviceJson.add("total_power", val[3]);
-    deviceJson.add("pressure", val[4]);
-    Firebase.RTDB.updateNode(&fbdo, "/device", &deviceJson);
+    for (int i = 0; i < NUM_VARS; i++) {
+        dataJson.add(myVars[i].firebaseKey, currentValues[i]);
+        
+        // IN CHI TIẾT TỪNG BIẾN ĐANG GỬI
+        Serial.printf(" >> Đang đóng gói: %-15s | Giá trị: %.2f\n", 
+                      myVars[i].firebaseKey.c_str(), 
+                      currentValues[i]);
 
-    // 3. Cập nhật node 'history' (Đúng cấu trúc YYYY-MM-DD/HH-mm để Web lọc được)
+        if (myVars[i].isHistory) {
+            historyJson.add(myVars[i].firebaseKey, currentValues[i]);
+            hasHistory = true;
+        }
+    }
+
     struct tm info;
+    String timePath = "";
     if (getLocalTime(&info)) {
         char folder[12], file[12];
         strftime(folder, sizeof(folder), "%Y-%m-%d", &info);
         strftime(file, sizeof(file), "%H-%M", &info);
-        
-        String path = "/history/" + String(folder) + "/" + String(file);
-        FirebaseJson historyJson;
-        historyJson.add("temperature", val[0]);
-        historyJson.add("pressure", val[4]);
-        Firebase.RTDB.setJSON(&fbdo, path, &historyJson);
+        timePath = "/history/" + String(folder) + "/" + String(file);
     }
+
+    // KIỂM TRA KẾT NỐI VÀ GỬI
+    if (WiFi.status() == WL_CONNECTED && Firebase.ready()) {
+        // Gửi dữ liệu xem tức thời
+        if (Firebase.RTDB.updateNode(&fbdo, "/data", &dataJson)) {
+            Serial.println(" OK: Đã cập nhật /data (Số nhảy trên Web)");
+        } else {
+            Serial.printf(" LỖI /data: %s\n", fbdo.errorReason().c_str());
+        }
+
+        // Gửi dữ liệu lịch sử
+        if (hasHistory && timePath != "") {
+            if (Firebase.RTDB.setJSON(&fbdo, timePath, &historyJson)) {
+                Serial.printf(" OK: Đã lưu lịch sử vào [%s]\n", timePath.c_str());
+            } else {
+                Serial.printf(" LỖI /history: %s\n", fbdo.errorReason().c_str());
+            }
+        }
+        
+        dayDuLieuTonDong(); // Kiểm tra đẩy nốt dữ liệu cũ nến có
+    } else {
+        // TRƯỜNG HỢP MẤT MẠNG
+        Serial.println(" WARN: Mất kết nối mạng! Đang chuyển dữ liệu vào bộ nhớ tạm LittleFS...");
+        String historyStr;
+        historyJson.toString(historyStr, false);
+        luuOffline(timePath, historyStr);
+    }
+    Serial.println("-------------------------------------------\n");
 }
 
+// --- VÒNG LẶP CHÍNH ---
 void loop() {
+    // 1. QUÉT TÌM ID (Chỉ chạy khi chưa thấy máy)
     if (foundID == 0) {
-        for (uint8_t id = 1; id <= 10; id++) {
-            node.begin(id, Serial2);
-            if (node.readHoldingRegisters(modbus_addrs[0], 1) == node.ku8MBSuccess) {
-                foundID = id; break;
+        static unsigned long lastScan = 0;
+        if (millis() - lastScan > 5000) { // Quét lại mỗi 5s nếu mất kết nối
+            lastScan = millis();
+            for (uint8_t id = 1; id <= 10; id++) {
+                node.begin(id, Serial2);
+                if (node.readHoldingRegisters(myVars[0].address, 1) == node.ku8MBSuccess) {
+                    foundID = id; 
+                    Serial.printf("\n[Modbus] Đã tìm thấy ID: %d\n", foundID);
+                    break;
+                }
+                delay(20); 
             }
-            delay(10);
         }
     }
 
-    // Đọc Modbus liên tục
+    // 2. ĐỌC DỮ LIỆU MỖI 2 GIÂY
     static unsigned long lastRead = 0;
-    if (millis() - lastRead > 2000) {
+    if (millis() - lastRead > 2000 && foundID != 0) {
         lastRead = millis();
+        
+        Serial.println("\n--- [GIÁM SÁT 2S] ---");
         for (int i = 0; i < NUM_VARS; i++) {
-            if (node.readHoldingRegisters(modbus_addrs[i], 1) == node.ku8MBSuccess) {
-                val[i] = (float)node.getResponseBuffer(0);
+            uint8_t result = node.readHoldingRegisters(myVars[i].address, 1);
+            if (result == node.ku8MBSuccess) {
+                currentValues[i] = (float)node.getResponseBuffer(0) / myVars[i].scale;
+                Serial.printf(" + %-15s: %.2f\n", myVars[i].firebaseKey.c_str(), currentValues[i]);
+            } else {
+                Serial.printf(" ! Lỗi đọc %s (0x%02X)\n", myVars[i].firebaseKey.c_str(), result);
+                if (result == 0xE2) { foundID = 0; break; }
             }
-            delay(40);
+            delay(40); 
         }
     }
 
+    // 3. GỬI LÊN CLOUD MỖI 60 GIÂY
     if (san_sang_gui) {
         san_sang_gui = false;
         dayDuLieuFirebase();
