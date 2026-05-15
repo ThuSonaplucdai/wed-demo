@@ -1,0 +1,65 @@
+var FIREBASE_URL = "https://wed-demo-d236a-default-rtdb.firebaseio.com/";
+var SECRET_KEY = "51DfTBzUyx0OX9uUqe4L4Aeg5j6rEjOZ7nd5Q3PN";
+
+function syncData() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getActiveSheet();
+  
+  try {
+    // 1. LẤY DỮ LIỆU TỪ FIREBASE
+    var response = UrlFetchApp.fetch(FIREBASE_URL + "data.json?auth=" + SECRET_KEY);
+    var d = JSON.parse(response.getContentText());
+    
+    if (d && typeof d === 'object') {
+      // 2. TẠO THỜI GIAN VIỆT NAM (GMT+7)
+      var now = new Date();
+      var vnTime = Utilities.formatDate(now, "GMT+7", "HH:mm:ss dd/MM/yyyy");
+
+      // 3. XỬ LÝ TIÊU ĐỀ (Đảm bảo cột A luôn là Thời gian)
+      var headers = [];
+      if (sheet.getLastRow() > 0) {
+        headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+      }
+
+      // Nếu cột đầu tiên chưa phải là "Thời gian", chúng ta chèn vào
+      if (headers[0] !== "Thời gian") {
+        sheet.insertColumnBefore(1);
+        sheet.getRange(1, 1).setValue("Thời gian").setFontWeight("bold");
+        headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+      }
+
+      // 4. KIỂM TRA THÔNG SỐ MỚI ĐỂ TỰ SINH CỘT
+      for (var key in d) {
+        if (headers.indexOf(key) === -1) {
+          sheet.getRange(1, sheet.getLastColumn() + 1).setValue(key).setFontWeight("bold");
+          headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+        }
+      }
+
+      // 5. CHUẨN BỊ DỮ LIỆU HÀNG
+      var rowData = new Array(headers.length).fill("");
+      rowData[0] = vnTime; // Ghi thời gian vào cột A
+
+      for (var key in d) {
+        var colIndex = headers.indexOf(key);
+        if (colIndex !== -1) {
+          rowData[colIndex] = d[key];
+        }
+      }
+      
+      // 6. GHI DỮ LIỆU VÀO HÀNG MỚI TIẾP THEO
+      sheet.appendRow(rowData);
+      
+      // 7. DỌN DẸP HÀNG TRỐNG (Để tránh lỗi 10 triệu ô như bạn gặp lúc nãy)
+      var lastRow = sheet.getLastRow();
+      var maxRows = sheet.getMaxRows();
+      if (maxRows > lastRow + 5) {
+        sheet.deleteRows(lastRow + 1, maxRows - lastRow);
+      }
+
+      Logger.log("Đã lưu hàng mới lúc: " + vnTime);
+    }
+  } catch (e) {
+    Logger.log("Lỗi: " + e.toString());
+  }
+}
